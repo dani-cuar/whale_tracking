@@ -1,0 +1,20 @@
+# Archivos temporales de Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Archivos de base de datos SQLite
+*.db
+
+# Archivos de logs
+*.log
+
+# Carpeta del entorno virtual (si usas un entorno con conda o venv)
+env/
+venv/
+
+# Archivos específicos de PyCharm o IDEs
+.idea/
+
+# Archivos del sistema (por ejemplo, en macOS)
+.DS_Store
