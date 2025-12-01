@@ -27,7 +27,7 @@ GUI_TO_DB = {
     "Boat Speed": "boat_speed",
     "WW-Whale Distance": "ww_whale_distance",
     "Engine On": "engine_on",
-    "Visibility": "visibility",
+    "# Visibility": "visibility",
     "Hydrophone": "hydrophone",
     "Observations": "observations",
 }

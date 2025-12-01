@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+import time
 
 def run_gui(handlers):
     # Crear la ventana principal
@@ -14,7 +15,138 @@ def run_gui(handlers):
     # Crear un marco exterior con borde gris y margen interior
     outer_frame = tk.Frame(root, bd=0.5, relief="solid", bg="white")  # Borde gris claro
     outer_frame.pack(padx=20, pady=20)  # Margen interior de 20 píxeles
+    
+    # ------  Lógica para rastreo de tiempo por ballena --------------#
+    # Labels (columns)
+    columns = [
+        "ID", "Init Pos", "Final Pos", "Time", "# Sightings",
+        "Behavior", "# Blows", "First Blow",
+        "# Whales", "Individual (letter)", "Initial Distance",
+        "# Photos", "Fluke", "Shallow dive", "# Skin Sample",
+        "Feces in Trail", "# Boats", "Boat Speed",
+        "WW-Whale Distance", "Engine On",
+        "# Visibility", "Hydrophone", "Observations"
+    ]
+    # índices útiles
+    IDX_INIT_POS  = columns.index("Init Pos")
+    IDX_FINAL_POS = columns.index("Final Pos")
+    IDX_TIME      = columns.index("Time")
 
+    # diccionario para guardar el momento en que se presionó Start por ballena
+    start_times = {
+        "A": None,
+        "B": None,
+    }
+
+    def format_elapsed(seconds):
+        seconds = int(seconds)
+        m, s = divmod(seconds, 60)
+        h, m = divmod(m, 60)
+        if h:
+            return f"{h:02d}:{m:02d}:{s:02d}"
+        return f"{m:02d}:{s:02d}"
+
+    def get_whale_row(whale_id):
+        if whale_id == "A":
+            return whale_row_A
+        else:
+            return whale_row_B
+
+    # funciones para cambiar de estado el label
+    def set_status_tracking(whale_id):
+        lbl = status_labels[whale_id]
+        lbl.config(text="Tracking", bg="orange", fg="black")
+
+    def on_start_whale(whale_id):
+        """
+        Start: guarda hora de inicio y escribe Init Pos automáticamente.
+        """
+        set_status_tracking(whale_id)
+        row = get_whale_row(whale_id)
+
+        # 1) guardar la hora actual
+        start_times[whale_id] = time.time()
+
+        # 2) obtener posición actual (aquí decides de dónde sale)
+        #    Por ahora:
+        pos = ""
+        if "get_current_position" in handlers:
+            # si tienes un handler en main que devuelve la posición
+            pos = handlers["get_current_position"](whale_id)
+        else:
+            # placeholder si aún no tienes lógica real de posición
+            pos = "AUTO_POS"
+
+        # 3) escribir en Init Pos
+        widget_init = row[IDX_INIT_POS]
+        if isinstance(widget_init, tk.StringVar):
+            widget_init.set(pos)
+        else:
+            widget_init.delete(0, "end")
+            widget_init.insert(0, pos)
+
+        # (opcional) limpiar Final Pos y Time
+        widget_final = row[IDX_FINAL_POS]
+        widget_time  = row[IDX_TIME]
+
+        if isinstance(widget_final, tk.StringVar):
+            widget_final.set("")
+        else:
+            widget_final.delete(0, "end")
+
+        if isinstance(widget_time, tk.StringVar):
+            widget_time.set("")
+        else:
+            widget_time.delete(0, "end")
+
+    def on_stop_whale(whale_id):
+        """
+        Stop: calcula tiempo desde Start, y escribe Final Pos y Time.
+        """
+        row = get_whale_row(whale_id)
+
+        t0 = start_times.get(whale_id)
+        if t0 is None:
+            # Nunca se presionó Start para esta ballena
+            messagebox.showwarning(
+                "Sin inicio",
+                f"Primero presiona 'Start' para la ballena {whale_id}."
+            )
+            return
+
+        elapsed = time.time() - t0
+        start_times[whale_id] = None  # reseteamos
+
+        # 1) Final Pos
+        pos = ""
+        if "get_current_position" in handlers:
+            pos = handlers["get_current_position"](whale_id)
+        else:
+            pos = "AUTO_POS_END"
+
+        widget_final = row[IDX_FINAL_POS]
+        if isinstance(widget_final, tk.StringVar):
+            widget_final.set(pos)
+        else:
+            widget_final.delete(0, "end")
+            widget_final.insert(0, pos)
+
+        # 2) Time (duración)
+        time_str = format_elapsed(elapsed)
+        widget_time = row[IDX_TIME]
+        if isinstance(widget_time, tk.StringVar):
+            widget_time.set(time_str)
+        else:
+            widget_time.delete(0, "end")
+            widget_time.insert(0, time_str)
+
+    # ------------- lógica para llevar el estado del tracking ---------#
+    def set_status_available(whale_id):
+        lbl = status_labels[whale_id]
+        lbl.config(text="Available", bg="green", fg="white")
+
+    # se espera confirmacion del main de datos correctos para cambiar el estado a available
+    handlers["status_available"] = set_status_available
     ###------------------------SECCIÓN 1 - TITULOS Y BOTONES DE STATUS Y TRACKING---------------------###
     # Crear un canvas para dibujar la línea
     canvas = tk.Canvas(outer_frame, width=1200, height=650, bg="white")
@@ -40,10 +172,10 @@ def run_gui(handlers):
     status_whale_a = tk.Label(outer_frame, text="Available", font=("Arial", 12), bg="green", fg="white")
     status_whale_a.place(x=210, y=65, width=100, height=25)  
 
-    start_button_whale_a = tk.Button(outer_frame, text="Start", font=("Arial", 12), bg="black", fg="white")
+    start_button_whale_a = tk.Button(outer_frame, text="Start", font=("Arial", 12), bg="black", fg="white", command=lambda: on_start_whale("A"))
     start_button_whale_a.place(x=330, y=65, width=100, height=25)
 
-    stop_button_whale_a = tk.Button(outer_frame, text="Stop", font=("Arial", 12), bg="black", fg="white")
+    stop_button_whale_a = tk.Button(outer_frame, text="Stop", font=("Arial", 12), bg="black", fg="white", command=lambda: on_stop_whale("A"))
     stop_button_whale_a.place(x=450, y=65, width=100, height=25)
 
     # Fila 2: Whale B
@@ -54,10 +186,10 @@ def run_gui(handlers):
     status_whale_b = tk.Label(outer_frame, text="Available", font=("Arial", 12), bg="green", fg="white")
     status_whale_b.place(x=790, y=65, width=100, height=25) 
 
-    start_button_whale_b = tk.Button(outer_frame, text="Start", font=("Arial", 12), bg="black", fg="white")
+    start_button_whale_b = tk.Button(outer_frame, text="Start", font=("Arial", 12), bg="black", fg="white", command=lambda: on_start_whale("B"))
     start_button_whale_b.place(x=910, y=65, width=100, height=25)
 
-    stop_button_whale_b = tk.Button(outer_frame, text="Stop", font=("Arial", 12), bg="black", fg="white")
+    stop_button_whale_b = tk.Button(outer_frame, text="Stop", font=("Arial", 12), bg="black", fg="white", command=lambda: on_stop_whale("B"))
     stop_button_whale_b.place(x=1030, y=65, width=100, height=25)
 
     # Añadir textos real time tracking y general tracking
@@ -73,6 +205,11 @@ def run_gui(handlers):
     stop_button_general_tracking = tk.Button(outer_frame, text="Stop", font=("Arial", 12), bg="black", fg="white")
     stop_button_general_tracking.place(x=1030, y=10, width=100, height=25)
 
+    # diccionario para llevar el estado del tracking
+    status_labels = {
+        "A": status_whale_a,
+        "B": status_whale_b,
+    }
     ###--------------------------------SECCIÓN 2 - FORMULARIO DE REGISTRO--------------------------------###
     # Colores y fuentes
     HEADER_BG = "#f5f5f7"
@@ -98,7 +235,7 @@ def run_gui(handlers):
             "# Photos", "Fluke", "Shallow dive", "# Skin Sample",
             "Feces in Trail", "# Boats", "Boat Speed",
             "WW-Whale Distance", "Engine On",
-            "Visibility", "Hydrophone", "Observations"
+            "# Visibility", "Hydrophone", "Observations"
         ]
         
         options = {
@@ -134,7 +271,7 @@ def run_gui(handlers):
                 entry = ttk.Entry(frame, width=16)
                 entry.insert(0, whale_id_letter)
                 entry.configure(justify="center")
-                entry.configure(state="disabled")  # 🔒 NO editable
+                entry.configure(state="disabled")  # NO editable
                 entry.grid(row=row_index + 1, column=col, padx=6, pady=(0, 5), sticky="we")
                 entries.append(entry)
                 continue
@@ -162,7 +299,7 @@ def run_gui(handlers):
     def get_form_data(entries, columns):
         """
         entries: lista que devolvió create_whale_form (widgets/StringVar)
-        columns: lista de nombres de columna (la misma que usas para la tabla)
+        columns: lista de nombres de columna (la misma que se usa para la tabla)
         Devuelve un diccionario { "Init Pos": "valor", ... }
         """
         data = {}
@@ -203,7 +340,7 @@ def run_gui(handlers):
         data = get_form_data(whale_row_A, columns)
         # llamamos al handler externo
         if "save_whale" in handlers:
-            handlers["save_whale"]("A", data)
+            handlers["save_whale"]("A", data)      
 
     save_button_whale_a = tk.Button(outer_frame, text="Save Whale A", font=("Arial", 12), bg="#5bc0ff", fg="white", command=on_save_whale_a)
     save_button_whale_a.place(x=1024, y=115, width=105, height=20)
@@ -239,17 +376,6 @@ def run_gui(handlers):
     save_button_whale_b.place(x=1024, y=235, width=105, height=20)
 
     ###---------------------------------------SECCIÓN 3 - ÚLTIMOS REGISTROS-----------------------------------###
-    # Labels (columns)
-    columns = [
-        "ID", "Init Pos", "Final Pos", "Time", "# Sightings",
-        "Behavior", "# Blows", "First Blow",
-        "# Whales", "Individual (letter)", "Initial Distance",
-        "# Photos", "Fluke", "Shallow dive", "# Skin Sample",
-        "Feces in Trail", "# Boats", "Boat Speed",
-        "WW-Whale Distance", "Engine On",
-        "Visibility", "Hydrophone", "Observations"
-    ]
-
     #---------------------------------- FUNCIONES AUXILIARES ----------------------------------#
     def clear_form(entries):
         """

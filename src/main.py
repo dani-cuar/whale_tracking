@@ -12,6 +12,7 @@ NUMERIC_INT_FIELDS = {
     "# Photos",
     "# Skin Sample",
     "# Boats",
+    "# Visibility",
 }
 
 # Campos que deben ser decimales (float)
@@ -131,6 +132,9 @@ def save_whale_handler(whale_id, data_gui):
 
     # Mensaje opcional de éxito
     messagebox.showinfo("Registro guardado", f"Registro de ballena {whale_id} guardado correctamente.")
+    # Notificar a la GUI que el registro se guardó bien
+    if "status_available" in handlers:
+        handlers["status_available"](whale_id)
 
     # limpiar formulario
     if "clear_forms" in handlers:
@@ -146,14 +150,18 @@ def save_whale_handler(whale_id, data_gui):
 def update_record_field_handler(db_id, gui_field_name, new_value):
     database.update_record_field(db_id, gui_field_name, new_value)
 
+def get_current_position_handler(whale_id):
+    # aquí luego podrás conectar con GPS, NMEA, o lo que uses
+    return "N00°00.000', W000°00.000'"  # ejemplo
+
 def main():
     database.init_db()
 
     # main rellena handlers con lo que la GUI necesitará llamar
     handlers["save_whale"] = save_whale_handler
     handlers["fetch_last_records"] = fetch_last_records_handler
-    handlers["update_record_field"] = update_record_field_handler
-    
+    handlers["update_record_field"] = update_record_field_handler  
+    handlers["get_current_position"] = get_current_position_handler
     # database.debug_print_all_records()
 
     run_gui(handlers)
