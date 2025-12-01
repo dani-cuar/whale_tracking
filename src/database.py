@@ -73,6 +73,42 @@ def get_last_records(limit=6):
 
     return records
 
+def get_records_by_date(start_date, end_date):
+    """
+    start_date, end_date: strings 'YYYY-MM-DD'
+    Devuelve lista de dicts como get_last_records, con clave extra '_db_id'.
+    """
+    with get_connection() as conn:
+        cur = conn.cursor()
+
+        db_cols = list(DB_TO_GUI.keys())  # ["id_tag", "init_pos", ...]
+        cols_sql = ", ".join(db_cols)
+
+        cur.execute(
+            f"""
+            SELECT id, {cols_sql}
+            FROM records
+            WHERE date(created_at) BETWEEN date(?) AND date(?)
+            ORDER BY created_at ASC, id ASC
+            """,
+            (start_date, end_date)
+        )
+        rows = cur.fetchall()
+
+    records = []
+    for row in rows:
+        db_id = row[0]
+        data_cols = row[1:]
+
+        gui_dict = {"_db_id": db_id}
+        for db_col, value in zip(db_cols, data_cols):
+            gui_key = DB_TO_GUI.get(db_col)
+            if gui_key:
+                gui_dict[gui_key] = "" if value is None else str(value)
+        records.append(gui_dict)
+
+    return records
+
 def update_record_field(db_id, gui_field_name, new_value):
     db_col = GUI_TO_DB.get(gui_field_name)
     if not db_col:

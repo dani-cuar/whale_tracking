@@ -1,5 +1,6 @@
 from tkinter import messagebox
-from gui import run_gui
+import tkinter as tk
+from gui import StartScreen, TrackingScreen, LogsScreen
 import database
 
 handlers = {}  # diccionario global compartido con la GUI
@@ -83,6 +84,8 @@ def validate_record(data_gui):
     ok = len(errors) == 0
     return ok, cleaned, errors
 
+# ------------- HANDLERS LÓGICOS -----------------#
+
 def fetch_last_records_handler(limit=6):
     """
     Devuelve lista de registros con claves de GUI (ID, Init Pos, etc.)
@@ -150,21 +153,93 @@ def save_whale_handler(whale_id, data_gui):
 def update_record_field_handler(db_id, gui_field_name, new_value):
     database.update_record_field(db_id, gui_field_name, new_value)
 
+def fetch_records_by_date_handler(start_date, end_date):
+    return database.get_records_by_date(start_date, end_date)
+
 def get_current_position_handler(whale_id):
     # aquí luego podrás conectar con GPS, NMEA, o lo que uses
     return "N00°00.000', W000°00.000'"  # ejemplo
 
-def main():
-    database.init_db()
+# --------------------- CLASE APP --------------------------------
 
-    # main rellena handlers con lo que la GUI necesitará llamar
-    handlers["save_whale"] = save_whale_handler
-    handlers["fetch_last_records"] = fetch_last_records_handler
-    handlers["update_record_field"] = update_record_field_handler  
-    handlers["get_current_position"] = get_current_position_handler
-    # database.debug_print_all_records()
+class App(tk.Tk):
+    def __init__(self):
+        super().__init__()
 
-    run_gui(handlers)
+        # init ventana base
+        self.title("Whale System - Inicio")
+        self.geometry("1200x650")
+
+        # init DB
+        database.init_db()
+
+        # init handlers compartidos
+        self.handlers = handlers
+        self._init_handlers()
+
+        # contenedor para las pantallas
+        self.container = tk.Frame(self)
+        self.container.pack(fill="both", expand=True)
+
+        # MUY IMPORTANTE: permitir que la pantalla (StartScreen / TrackingScreen)
+        # se expanda para llenar todo el contenedor
+        self.container.grid_rowconfigure(0, weight=1)
+        self.container.grid_columnconfigure(0, weight=1)
+
+        # diccionario de pantallas (StartScreen, TrackingScreen, etc.)
+        self.screens = {}
+
+        # crear pantallas y mostrar la de inicio
+        self.show_screen("start")
+
+    def _init_handlers(self):
+        self.handlers["save_whale"] = save_whale_handler
+        self.handlers["fetch_last_records"] = fetch_last_records_handler
+        self.handlers["update_record_field"] = update_record_field_handler
+        self.handlers["get_current_position"] = get_current_position_handler
+        self.handlers["fetch_records_by_date"] = fetch_records_by_date_handler
+        # database.debug_print_all_records()
+
+        # si alguna pantalla quiere acceder a la app
+        self.handlers["app"] = self
+
+    def show_screen(self, name):
+        """Muestra la pantalla 'start' o 'tracking'."""
+        # si ya existe, solo la traemos al frente
+        if name in self.screens:
+            if name == "start":
+                self.geometry("1200x650")
+                self.title("Whale Tracking System")
+            elif name == "tracking":
+                self.geometry("1200x650")
+                self.title("Whale Tracking System")
+            self.screens[name].tkraise()
+            return
+
+        # si no existe, la creamos
+        if name == "start":
+            self.geometry("1200x650")
+            self.title("Whale Tracking System")
+            frame = StartScreen(self.container, self, self.handlers)
+
+        elif name == "tracking":
+            # cuando pases a tracking, ajustas tamaño
+            self.geometry("1200x650")
+            self.title("Whale Tracking System")
+            frame = TrackingScreen(self.container, self, self.handlers)
+
+        elif name == "logs":
+            self.geometry("1200x650")
+            self.title("Tracking History")
+            frame = LogsScreen(self.container, self, self.handlers)
+
+        else:
+            raise ValueError(f"Pantalla desconocida: {name}")
+
+        frame.grid(row=0, column=0, sticky="nsew")
+        self.screens[name] = frame
+        frame.tkraise()
 
 if __name__ == "__main__":
-    main()
+    app = App()
+    app.mainloop()
