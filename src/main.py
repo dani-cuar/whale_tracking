@@ -181,7 +181,7 @@ class App(tk.Tk):
         self.container = tk.Frame(self)
         self.container.pack(fill="both", expand=True)
 
-        # MUY IMPORTANTE: permitir que la pantalla (StartScreen / TrackingScreen)
+        # permitir que la pantalla (StartScreen / TrackingScreen)
         # se expanda para llenar todo el contenedor
         self.container.grid_rowconfigure(0, weight=1)
         self.container.grid_columnconfigure(0, weight=1)
@@ -198,6 +198,8 @@ class App(tk.Tk):
         self.handlers["update_record_field"] = update_record_field_handler
         self.handlers["get_current_position"] = get_current_position_handler
         self.handlers["fetch_records_by_date"] = fetch_records_by_date_handler
+        self.handlers["delete_records"] = database.delete_records
+        self.handlers["backup_db"] = database.backup_database
         # database.debug_print_all_records()
 
         # si alguna pantalla quiere acceder a la app

@@ -374,6 +374,17 @@ class TrackingScreen(tk.Frame):
         stop_button_whale_b = tk.Button(outer_frame, text="Stop", font=("Arial", 12), bg="black", fg="white", command=lambda: on_stop_whale("B"))
         stop_button_whale_b.place(x=1030, y=65, width=100, height=25)
 
+        # Botón Back (volver a la pantalla de inicio)
+        back_btn = tk.Button(
+            outer_frame,
+            text="← Back",
+            font=("Arial", 10),
+            bg="#6b7280",
+            fg="white",
+            command=lambda: self.app.show_screen("start")
+        )
+        back_btn.place(x=540, y=570, width=80, height=25)
+
         # Añadir textos real time tracking y general tracking
         real_time_label = tk.Label(outer_frame, text="Real Time Tracking", font=("Arial", 14), bg="white")
         real_time_label.place(x=30, y=10)
@@ -600,7 +611,7 @@ class TrackingScreen(tk.Frame):
 
         # Marco que contiene la tabla
         records_frame = tk.Frame(outer_frame, bg="white", bd=1, relief="solid")
-        records_frame.place(x=10, y=400, width=1135, height=180)
+        records_frame.place(x=10, y=380, width=1135, height=180)
 
         # Treeview inside the table_frame
         tree = ttk.Treeview(
@@ -735,227 +746,6 @@ class TrackingScreen(tk.Frame):
         # Dejamos accesible a main.py
         handlers["refresh_last_records"] = refresh_last_records
 
-
-# class LogsScreen(tk.Frame):
-#     def __init__(self, parent, app, handlers, *args, **kwargs):
-#         super().__init__(parent, *args, **kwargs)
-#         self.app = app
-#         self.handlers = handlers
-
-#         BG = "#f5f7fb"
-#         TEXT = "#111827"
-#         # MUTED = "#6b7280"
-
-#         self.configure(bg=BG)
-
-#         # ---------- Título ----------
-#         title = tk.Label(
-#             self,
-#             text="Tracking History",
-#             font=("Arial", 20, "bold"),
-#             bg=BG,
-#             fg=TEXT
-#         )
-#         title.pack(pady=(20, 10))
-#         # title.pack(pady=20)
-
-#         # ----- Filtros de fecha -----
-#         filter_frame = tk.Frame(self, bg=BG)
-#         filter_frame.pack(pady=10)
-
-#         tk.Label(
-#             filter_frame,
-#             text="From (YYYY-MM-DD):",
-#             bg=BG,
-#             fg=TEXT,
-#             font=("Arial", 10)
-#         ).grid(row=0, column=0, padx=5, pady=5, sticky="e")
-
-#         self.entry_from = tk.Entry(filter_frame, width=12)
-#         self.entry_from.grid(row=0, column=1, padx=5, pady=5)
-
-#         tk.Label(
-#             filter_frame,
-#             text="To (YYYY-MM-DD):",
-#             bg=BG,
-#             fg=TEXT,
-#             font=("Arial", 10)
-#         ).grid(row=0, column=2, padx=5, pady=5, sticky="e")
-
-#         self.entry_to = tk.Entry(filter_frame, width=12)
-#         self.entry_to.grid(row=0, column=3, padx=5, pady=5)
-
-#         filter_btn = tk.Button(
-#             filter_frame,
-#             text="Filter",
-#             font=("Arial", 10),
-#             bg="black",
-#             fg="white",
-#             command=self.apply_filter
-#         )
-#         filter_btn.grid(row=0, column=4, padx=10, pady=5)
-
-#         export_btn = tk.Button(
-#             filter_frame,
-#             text="Export CSV",
-#             font=("Arial", 10),
-#             bg="#2563eb",
-#             fg="white",
-#             command=self.export_csv
-#         )
-#         export_btn.grid(row=0, column=5, padx=10, pady=5)
-
-#         back_btn = tk.Button(
-#             filter_frame,
-#             text="← Back",
-#             font=("Arial", 10),
-#             bg="#6b7280",
-#             fg="white",
-#             command=lambda: self.app.show_screen("start")
-#         )
-#         back_btn.grid(row=0, column=6, padx=10, pady=5)
-
-#         # ---------- Tabla para ver registros ----------
-#         table_frame = tk.Frame(self, bg=BG)
-#         table_frame.pack(pady=10, padx=40, fill="both", expand=True)
-
-#         self.columns = [
-#             "ID", "Init Pos", "Final Pos", "Time",
-#             "# Sightings", "Behavior", "# Blows", "First Blow",
-#             "# Whales", "Individual (letter)", "Initial Distance",
-#             "# Photos", "Fluke", "Shallow dive", "# Skin Sample",
-#             "Feces in Trail", "# Boats", "Boat Speed",
-#             "WW-Whale Distance", "Engine On",
-#             "# Visibility", "Hydrophone", "Observations"
-#         ]
-
-#         self.tree = ttk.Treeview(
-#             table_frame,
-#             columns=columns,
-#             show="headings",
-#             height=12
-#         )
-
-#         # headers
-#         for col in columns:
-#             self.tree.heading(col, text=col)
-#             self.tree.column(col, width=150, anchor="center")
-
-#         self.tree.pack(side="left", fill="both", expand=True)
-
-#         # scrollbar
-#         scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
-#         self.tree.configure(yscrollcommand=scrollbar.set)
-#         scrollbar.pack(side="right", fill="y")
-
-#         # donde guardamos los registros actuales (para exportar a CSV)
-#         self.current_records = []
-
-#         # --------- Lógica de filtros ---------
-
-#         def apply_filter(self):
-#             start_str = self.entry_from.get().strip()
-#             end_str = self.entry_to.get().strip()
-
-#             if not start_str and not end_str:
-#                 messagebox.showwarning("Fechas requeridas", "Ingresa al menos una fecha.")
-#                 return
-
-#             # si solo ponen una, usamos la misma como from/to
-#             if start_str and not end_str:
-#                 end_str = start_str
-#             if end_str and not start_str:
-#                 start_str = end_str
-
-#             # validar formato YYYY-MM-DD
-#             for label, value in (("From", start_str), ("To", end_str)):
-#                 try:
-#                     datetime.strptime(value, "%Y-%m-%d")
-#                 except ValueError:
-#                     messagebox.showerror(
-#                         "Formato inválido",
-#                         f"El campo '{label}' debe tener formato YYYY-MM-DD."
-#                     )
-#                     return
-
-#             if "fetch_records_by_date" not in self.handlers:
-#                 messagebox.showerror("Error", "No hay handler para filtrar por fecha.")
-#                 return
-
-#             records = self.handlers["fetch_records_by_date"](start_str, end_str)
-#             self.current_records = records  # guardamos para exportar
-
-#             # limpiar tabla
-#             for item in self.tree.get_children():
-#                 self.tree.delete(item)
-
-#             # rellenar
-#             for rec in records:
-#                 values = [rec.get(col, "") for col in self.columns]
-#                 self.tree.insert("", "end", values=values)
-
-#         # --------- Exportar CSV ---------
-
-#         def export_csv(self):
-#             if not self.current_records:
-#                 messagebox.showinfo("Sin datos", "No hay registros para exportar.")
-#                 return
-
-#             file_path = filedialog.asksaveasfilename(
-#                 defaultextension=".csv",
-#                 filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
-#                 title="Guardar como CSV"
-#             )
-#             if not file_path:
-#                 return  # usuario canceló
-
-#             try:
-#                 with open(file_path, mode="w", newline="", encoding="utf-8") as f:
-#                     writer = csv.writer(f)
-
-#                     # encabezados
-#                     writer.writerow(self.columns)
-
-#                     # filas
-#                     for rec in self.current_records:
-#                         row = [rec.get(col, "") for col in self.columns]
-#                         writer.writerow(row)
-
-#                 messagebox.showinfo("Exportación exitosa", f"Archivo guardado en:\n{file_path}")
-#             except Exception as e:
-#                 messagebox.showerror("Error al exportar", f"No se pudo guardar el CSV:\n{e}")
-
-#             # ---------- Botón volver ----------
-#             back_btn = tk.Button(
-#                 self,
-#                 text="← Back",
-#                 font=("Arial", 12),
-#                 bg="black",
-#                 fg="white",
-#                 command=lambda: self.app.show_screen("start")
-#             )
-#             back_btn.pack(pady=20)
-
-#         # cargar datos
-#         self.load_logs()
-
-#     def load_logs(self):
-#         """Carga TODOS los registros de la BD y los muestra en la tabla."""
-#         if "fetch_last_records" not in self.handlers:
-#             return
-
-#         # IMPORTANTE: pedimos muchos registros (1000) o todos
-#         records = self.handlers["fetch_last_records"](limit=1000)
-
-#         # limpiar tabla
-#         for item in self.tree.get_children():
-#             self.tree.delete(item)
-
-#         for rec in records:
-#             values = [rec.get(col, "") for col in self.tree["columns"]]
-#             self.tree.insert("", "end", values=values)
-
-
 class LogsScreen(tk.Frame):
     def __init__(self, parent, app, handlers, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
@@ -966,6 +756,9 @@ class LogsScreen(tk.Frame):
         TEXT = "#111827"
 
         self.configure(bg=BG)
+
+        # MAPPING Treeview item -> id de la BD
+        self.item_to_dbid = {}
 
         # ---------- Título ----------
         title = tk.Label(
@@ -1009,9 +802,19 @@ class LogsScreen(tk.Frame):
             font=("Arial", 10),
             bg="black",
             fg="white",
-            command=self.apply_filter          # 👈 ahora existe como método
+            command=self.apply_filter         
         )
         filter_btn.grid(row=0, column=4, padx=10, pady=5)
+
+        clear_btn = tk.Button(
+            filter_frame,
+            text="Clear",
+            font=("Arial", 10),
+            bg="#9ca3af",
+            fg="white",
+            command=self.clear_filters
+        )
+        clear_btn.grid(row=0, column=5, padx=10, pady=5)
 
         export_btn = tk.Button(
             filter_frame,
@@ -1019,9 +822,39 @@ class LogsScreen(tk.Frame):
             font=("Arial", 10),
             bg="#2563eb",
             fg="white",
-            command=self.export_csv            # 👈 idem
+            command=self.export_csv         
         )
-        export_btn.grid(row=0, column=5, padx=10, pady=5)
+        export_btn.grid(row=0, column=6, padx=10, pady=5)
+
+        delete_btn = tk.Button(
+            filter_frame,
+            text="Delete selected",
+            font=("Arial", 10),
+            bg="#dc2626",
+            fg="white",
+            command=self.delete_selected
+        )
+        delete_btn.grid(row=0, column=7, padx=10, pady=5)
+
+        refresh_btn = tk.Button(
+            filter_frame,
+            text="Refresh",
+            font=("Arial", 10),
+            bg="#10b981",
+            fg="white",
+            command=self.refresh_view
+        )
+        refresh_btn.grid(row=0, column=8, padx=10, pady=5)
+
+        backup_btn = tk.Button(
+            filter_frame,
+            text="Backup DB",
+            font=("Arial", 10),
+            bg="#4b5563",
+            fg="white",
+            command=self.backup_db
+        )
+        backup_btn.grid(row=0, column=9, padx=10, pady=5)
 
         back_btn = tk.Button(
             filter_frame,
@@ -1031,14 +864,14 @@ class LogsScreen(tk.Frame):
             fg="white",
             command=lambda: self.app.show_screen("start")
         )
-        back_btn.grid(row=0, column=6, padx=10, pady=5)
+        back_btn.grid(row=0, column=10, padx=10, pady=5)
 
         # ---------- Tabla para ver registros ----------
         table_frame = tk.Frame(self, bg=BG)
-        table_frame.pack(pady=10, padx=40, fill="both", expand=True)
+        table_frame.pack(pady=30, padx=40, fill="both", expand=True)
 
         self.columns = [
-            "ID", "Init Pos", "Final Pos", "Time",
+            "Date", "ID", "Init Pos", "Final Pos", "Time",
             "# Sightings", "Behavior", "# Blows", "First Blow",
             "# Whales", "Individual (letter)", "Initial Distance",
             "# Photos", "Fluke", "Shallow dive", "# Skin Sample",
@@ -1049,27 +882,42 @@ class LogsScreen(tk.Frame):
 
         self.tree = ttk.Treeview(
             table_frame,
-            columns=self.columns,          # 👈 self.columns
+            columns=self.columns,          
             show="headings",
             height=12
         )
+        self.tree.bind("<Button-1>", self._tree_deselect)
+        self.tree.bind("<Escape>", lambda e: self.tree.selection_remove(self.tree.selection()))
 
         # headers
-        for col in self.columns:          # 👈 self.columns
+        for col in self.columns:         
             self.tree.heading(col, text=col)
             self.tree.column(col, width=150, anchor="center")
 
         self.tree.pack(side="left", fill="both", expand=True)
 
-        # scrollbar
-        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
+        # Scrollbar horizontal
+        scroll_x = ttk.Scrollbar(table_frame, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(xscrollcommand=scroll_x.set)
+
+        scroll_y = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scroll_y.set)
+        # ----------------------
+        # Layout usando GRID
+        # ----------------------
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        scroll_x.grid(row=1, column=0, sticky="ew")
+        scroll_y.grid(row=0, column=1, sticky="ns")
+        # ----------------------
+        # Para que el Treeview se expanda
+        # ----------------------
+        table_frame.grid_rowconfigure(0, weight=1)
+        table_frame.grid_columnconfigure(0, weight=1)
 
         # donde guardamos los registros actuales (para exportar a CSV)
         self.current_records = []
 
-        # opcional: cargar algo inicial (últimos N)
+        # opcional: cargar algo inicial (últimos 20)
         self.load_logs()
 
     # --------- Lógica de filtros ---------
@@ -1109,11 +957,94 @@ class LogsScreen(tk.Frame):
         # limpiar tabla
         for item in self.tree.get_children():
             self.tree.delete(item)
+        self.item_to_dbid.clear()
 
         # rellenar
         for rec in records:
             values = [rec.get(col, "") for col in self.columns]
-            self.tree.insert("", "end", values=values)
+            item_id = self.tree.insert("", "end", values=values)
+
+            # guardar id de BD
+            db_id = rec.get("_db_id")
+            if db_id is not None:
+                self.item_to_dbid[item_id] = db_id
+
+    def clear_filters(self):
+        """Limpia las cajas de fecha y recarga el log inicial (últimos registros)."""
+        self.entry_from.delete(0, "end")
+        self.entry_to.delete(0, "end")
+        self.load_logs()
+
+    def refresh_view(self):
+        """Vuelve a cargar la vista actual: filtro si hay fechas, log inicial si no."""
+        start_str = self.entry_from.get().strip()
+        end_str = self.entry_to.get().strip()
+
+        # Si no hay fechas → simplemente recargar últimos registros
+        if not start_str and not end_str:
+            self.load_logs()
+            return
+
+        # Si hay algo escrito, usamos la lógica de filtros
+        self.apply_filter()
+
+    #----------- Deseleccionar celda ------------------
+    def _tree_deselect(self, event):
+        region = self.tree.identify("region", event.x, event.y)
+        if region not in ("cell", "tree"):
+            self.tree.selection_remove(self.tree.selection())
+
+    # --------- Borrar registros seleccionados ---------
+    def delete_selected(self):
+        selected_items = self.tree.selection()
+        if not selected_items:
+            messagebox.showinfo("Sin selección", "Selecciona al menos un registro para borrar.")
+            return
+
+        if "delete_records" not in self.handlers:
+            messagebox.showerror("Error", "No hay handler para borrar registros.")
+            return
+
+        if not messagebox.askyesno(
+            "Confirmar borrado",
+            f"¿Borrar {len(selected_items)} registro(s)? Esta acción no se puede deshacer."
+        ):
+            return
+
+        # obtener ids de la BD asociados a los items seleccionados
+        db_ids = []
+        for item in selected_items:
+            db_id = self.item_to_dbid.get(item)
+            if db_id is not None:
+                db_ids.append(db_id)
+
+        if not db_ids:
+            messagebox.showwarning(
+                "No encontrado",
+                "No se encontraron IDs de base de datos para los registros seleccionados."
+            )
+            return
+
+        # borrar en la BD
+        try:
+            self.handlers["delete_records"](db_ids)
+        except Exception as e:
+            messagebox.showerror("Error al borrar", f"No se pudieron borrar los registros:\n{e}")
+            return
+
+        # borrar del Treeview y de estructuras locales
+        for item in selected_items:
+            self.tree.delete(item)
+            self.item_to_dbid.pop(item, None)
+
+        # actualizar self.current_records filtrando los que borramos
+        self.current_records = [
+            r for r in self.current_records
+            if r.get("_db_id") not in db_ids
+        ]
+
+        messagebox.showinfo("Borrado", "Registros borrados correctamente.")
+
 
     # --------- Exportar CSV ---------
     def export_csv(self):
@@ -1131,6 +1062,37 @@ class LogsScreen(tk.Frame):
                 "No hay registros con ID 'A' ni 'B' en el filtro actual."
             )
             return
+
+        # -----------------------------
+        # Construir sufijo de fecha/rango
+        # -----------------------------
+        start_str = self.entry_from.get().strip()
+        end_str = self.entry_to.get().strip()
+
+        # Normalizar como haces en apply_filter
+        if start_str and not end_str:
+            end_str = start_str
+        if end_str and not start_str:
+            start_str = end_str
+
+        def normalize_date(s):
+            try:
+                # lo dejamos en YYYY-MM-DD bien formateado
+                return datetime.strptime(s, "%Y-%m-%d").date().isoformat()
+            except Exception:
+                return s  # por si acaso
+
+        if start_str and end_str:
+            start_norm = normalize_date(start_str)
+            end_norm = normalize_date(end_str)
+            if start_norm == end_norm:
+                date_suffix = f"_{start_norm}"
+            else:
+                date_suffix = f"_{start_norm}_to_{end_norm}"
+        else:
+            # sin filtro de fechas: usar timestamp para no sobrescribir
+            ts = datetime.now().strftime("%Y-%m-%d")
+            date_suffix = f"_{ts}"
 
         # pedir carpeta donde guardar los archivos
         folder = filedialog.askdirectory(
@@ -1153,7 +1115,8 @@ class LogsScreen(tk.Frame):
         # guardar A
         path_A = None
         if records_A:
-            path_A = os.path.join(folder, "whale_A_logs.csv")
+            filename_A = f"whale_A_logs{date_suffix}.csv"
+            path_A = os.path.join(folder, filename_A)
             try:
                 write_csv(path_A, records_A)
             except Exception as e:
@@ -1162,7 +1125,8 @@ class LogsScreen(tk.Frame):
         # guardar B
         path_B = None
         if records_B:
-            path_B = os.path.join(folder, "whale_B_logs.csv")
+            filename_B = f"whale_B_logs{date_suffix}.csv"
+            path_B = os.path.join(folder, filename_B)
             try:
                 write_csv(path_B, records_B)
             except Exception as e:
@@ -1182,19 +1146,49 @@ class LogsScreen(tk.Frame):
             messagebox.showinfo("Exportación exitosa", msg)
 
     
-    # ---------- Cargar algo al entrar ----------
+    # ---------- Cargar algo al entrar, esto es para el log ----------
     def load_logs(self):
-        """Carga algunos registros iniciales (por ejemplo, los últimos 6)."""
+        """Carga algunos registros iniciales (por ejemplo, los últimos 20)."""
         if "fetch_last_records" not in self.handlers:
             return
 
-        records = self.handlers["fetch_last_records"](limit=6)
+        records = self.handlers["fetch_last_records"](limit=20)
         self.current_records = records
 
         for item in self.tree.get_children():
             self.tree.delete(item)
+        self.item_to_dbid.clear()   # limpiar mapping inicial
 
         for rec in records:
             values = [rec.get(col, "") for col in self.columns]
-            self.tree.insert("", "end", values=values)
+            item_id = self.tree.insert("", "end", values=values)
 
+            db_id = rec.get("_db_id")
+            if db_id is not None:
+                self.item_to_dbid[item_id] = db_id
+
+    def backup_db(self):
+        """Pide una carpeta y crea un backup de la base de datos ahí."""
+        if "backup_db" not in self.handlers:
+            messagebox.showerror("Error", "No hay handler para hacer backup de la base de datos.")
+            return
+
+        folder = filedialog.askdirectory(
+            title="Selecciona la carpeta donde guardar el backup de la base de datos"
+        )
+        if not folder:
+            return  # usuario canceló
+
+        try:
+            backup_path = self.handlers["backup_db"](folder)
+        except Exception as e:
+            messagebox.showerror(
+                "Error al crear backup",
+                f"No se pudo crear el backup de la base de datos:\n{e}"
+            )
+            return
+
+        messagebox.showinfo(
+            "Backup creado",
+            f"Backup creado correctamente en:\n{backup_path}"
+        )

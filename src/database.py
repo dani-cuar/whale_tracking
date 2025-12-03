@@ -1,12 +1,15 @@
 import sqlite3
 from pathlib import Path
+import shutil
+from datetime import datetime
 
 # Ruta de la base de datos (puedes ajustarla si tienes carpeta data/)
 DB_PATH = Path(__file__).resolve().parent.parent / "data" / "database.db"
 DB_PATH.parent.mkdir(exist_ok=True)  # crea carpeta data/ si no existe
 
-# Mapeo GUI -> columna SQL (importante para futuro)
+# Mapeo GUI -> columna SQL
 GUI_TO_DB = {
+    "Date": "created_at",
     "ID": "id_tag",
     "Init Pos": "init_pos",
     "Final Pos": "final_pos",
@@ -109,6 +112,21 @@ def get_records_by_date(start_date, end_date):
 
     return records
 
+def delete_records(db_ids):
+    """
+    Handler para borrar registros, borra de la tabla records todos los registros cuyos id estén en db_ids (lista de enteros).
+    """
+    if not db_ids:
+        return
+
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.executemany(
+            "DELETE FROM records WHERE id = ?",
+            [(db_id,) for db_id in db_ids]
+        )
+        conn.commit()
+
 def update_record_field(db_id, gui_field_name, new_value):
     db_col = GUI_TO_DB.get(gui_field_name)
     if not db_col:
@@ -157,7 +175,8 @@ def init_db():
                 visibility TEXT,
                 hydrophone TEXT,
                 observations TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                created_at TEXT DEFAULT (datetime('now','localtime'))
+
             )
             """
         )
@@ -174,3 +193,20 @@ def debug_print_all_records():
     for row in rows:
         print(row)
     print("----------------------------------------\n")
+
+def backup_database(dest_folder):
+    """
+    Crea una copia de la base de datos en dest_folder.
+    El nombre incluirá un timestamp para no sobrescribir:
+    database_backup_YYYYMMDD_HHMMSS.db
+    """
+    src = DB_PATH
+    if not src.exists():
+        raise FileNotFoundError(f"No se encontró la base de datos en {src}")
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_at_%H-%M-%S")
+    backup_name = f"{src.stem}_backup_{timestamp}{src.suffix}"  # ej: database_backup_20251203_204455.db
+    dest_path = Path(dest_folder) / backup_name
+
+    shutil.copy2(src, dest_path)
+    return str(dest_path)
