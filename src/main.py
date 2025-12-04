@@ -167,8 +167,6 @@ def configure_gps_handler(config_dict):
     Guarda configuración de GPS recibida desde la GUI.
     config_dict es algo tipo:
     {
-        "port": "COM3",
-        "baudrate": 4800,
         "use_mock": True/False
     }
     """
@@ -179,9 +177,6 @@ def configure_gps_handler(config_dict):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        
-        # aplicar estilos ttk (botones redondeados, colores, etc.)
-        # init_styles(self)
 
         # init ventana base
         self.title("Whale System - Inicio")

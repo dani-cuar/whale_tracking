@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog, simpledialog
 from datetime import datetime
 import csv
+import sys, os
 import time
 import os
 import gps
@@ -1230,12 +1231,20 @@ class LogsScreen(tk.Frame):
             ts = datetime.now().strftime("%Y-%m-%d")
             date_suffix = f"_{ts}"
 
-        # pedir carpeta donde guardar los archivos
-        folder = filedialog.askdirectory(
-            title="Selecciona la carpeta para guardar los CSV de A y B"
-        )
-        if not folder:
-            return  # usuario canceló
+        # -----------------------------
+        # Carpeta por defecto: donde está el programa / exe
+        # -----------------------------
+        try:
+            if getattr(sys, "frozen", False):
+                folder = os.path.dirname(sys.executable)  # cuando es .exe
+            else:
+                folder = os.path.dirname(os.path.abspath(__file__))  # en desarrollo
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"No se pudo obtener la carpeta del programa:\n{e}"
+            )
+            return
 
         errors = []
 
@@ -1309,11 +1318,22 @@ class LogsScreen(tk.Frame):
             messagebox.showerror("Error", "No hay handler para hacer backup de la base de datos.")
             return
 
-        folder = filedialog.askdirectory(
-            title="Selecciona la carpeta donde guardar el backup de la base de datos"
-        )
-        if not folder:
-            return  # usuario canceló
+        # folder = filedialog.askdirectory(
+        #     title="Selecciona la carpeta donde guardar el backup de la base de datos"
+        # )
+        # if not folder:
+        #     return  # usuario canceló
+
+        # Obtener carpeta del ejecutable o del script
+        try:
+            import sys, os
+            if getattr(sys, "frozen", False):
+                folder = os.path.dirname(sys.executable)      # cuando es .exe
+            else:
+                folder = os.path.dirname(os.path.abspath(__file__))  # cuando es código fuente
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo obtener carpeta del programa:\n{e}")
+            return
 
         try:
             backup_path = self.handlers["backup_db"](folder)
@@ -1328,135 +1348,6 @@ class LogsScreen(tk.Frame):
             "Backup creado",
             f"Backup creado correctamente en:\n{backup_path}"
         )
-
-# class ConfigScreen(tk.Frame):
-#     def __init__(self, parent, app, handlers, *args, **kwargs):
-#         super().__init__(parent, *args, **kwargs)
-
-#         self.app = app
-#         self.handlers = handlers
-
-#         self.config_data = gps.load_config()
-
-#         bg = "#f5f7fb"
-#         text = "#111827"
-
-#         self.configure(bg=bg)
-
-#         title = tk.Label(
-#             self,
-#             text="GPS Configuration",
-#             font=("Arial", 22, "bold"),
-#             bg=bg,
-#             fg=text
-#         )
-#         title.pack(pady=(140,10))
-
-#         # ----- Tarjeta centrada -----
-#         card = tk.Frame(self, bg="white", bd=1, relief="solid")
-#         card.place(relx=0.5, rely=0.5, anchor="center")  # 👈 centro pantalla
-
-#         # márgenes internos de la tarjeta
-#         inner = tk.Frame(card, bg="white")
-#         inner.pack(padx=40, pady=30)
-
-#         # ------- PORT -------
-#         tk.Label(inner, text="Port (COM / tty):", bg=bg, fg=text).grid(row=0, column=0, sticky="e", pady=8)
-#         self.entry_port = tk.Entry(inner, width=20)
-#         self.entry_port.insert(0, self.config_data.get("port", "COM3"))
-#         self.entry_port.grid(row=0, column=1, padx=10)
-
-#         # ------- BAUDRATE -------
-#         tk.Label(inner, text="Baudrate:", bg=bg, fg=text).grid(row=1, column=0, sticky="e", pady=8)
-#         self.entry_baud = tk.Entry(inner, width=20)
-#         self.entry_baud.insert(0, self.config_data.get("baudrate", 4800))
-#         self.entry_baud.grid(row=1, column=1, padx=10)
-
-#         # ------- USE MOCK -------
-#         self.use_mock_var = tk.BooleanVar()
-#         self.use_mock_var.set(self.config_data.get("use_mock", True))
-
-#         chk = tk.Checkbutton(
-#             inner,
-#             text="Use simulated GPS (testing mode)",
-#             variable=self.use_mock_var,
-#             bg=bg,
-#             fg=text,
-#             font=("Arial", 10),
-#             anchor="w"
-#         )
-#         chk.grid(row=2, column=0, columnspan=2, pady=(12, 20), sticky="w")
-
-#         # ------- BOTONES alineados al centro -------
-#         btn_frame = tk.Frame(inner, bg="white")
-#         btn_frame.grid(row=3, column=0, columnspan=2)
-
-#         test_btn = tk.Button(
-#             btn_frame,
-#             text="Test GPS",
-#             font=("Arial", 10),
-#             bg="#2563EB",
-#             fg="white",
-#             width=10,
-#             command=self.test_gps
-#         )
-#         test_btn.grid(row=0, column=0, padx=5)
-
-#         save_btn = tk.Button(
-#             btn_frame,
-#             text="Save",
-#             font=("Arial", 10),
-#             bg="#16A34A",
-#             fg="white",
-#             width=10,
-#             command=self.save_config
-#         )
-#         save_btn.grid(row=0, column=1, padx=5)
-
-#         back_btn = tk.Button(
-#             btn_frame,
-#             text="← Back",
-#             font=("Arial", 10),
-#             bg="#6B7280",
-#             fg="white",
-#             width=10,
-#             command=lambda: self.app.show_screen("start")
-#         )
-#         back_btn.grid(row=0, column=2, padx=5)
-
-#     # ---------------- TEST GPS ----------------
-#     def test_gps(self):
-#         cfg = {
-#             "port": self.entry_port.get(),
-#             "baudrate": int(self.entry_baud.get()),
-#             "use_mock": self.use_mock_var.get()
-#         }
-
-#         if cfg["use_mock"]:
-#             messagebox.showinfo("Test OK", "Simulated GPS is active.\nThis mode does not read real hardware.")
-#             return
-
-#         try:
-#             lat, lon = gps.test_connection(cfg)
-#             messagebox.showinfo("GPS OK", f"Fix acquired:\nLat: {lat:.5f}\nLon: {lon:.5f}")
-#         except Exception as e:
-#             messagebox.showerror("Error", f"Could not read GPS:\n{e}")
-
-#     # ---------------- SAVE CONFIG ----------------
-#     def save_config(self):
-#         new_cfg = {
-#             "port": self.entry_port.get(),
-#             "baudrate": int(self.entry_baud.get()),
-#             "use_mock": self.use_mock_var.get()
-#         }
-
-#         gps.save_config(new_cfg)
-
-#         if "configure_gps" in self.handlers:
-#             self.handlers["configure_gps"](new_cfg)
-
-#         messagebox.showinfo("Saved", "GPS configuration saved.")
-#         self.app.show_screen("start")
 
 class ConfigScreen(tk.Frame):
     def __init__(self, parent, app, handlers, *args, **kwargs):
