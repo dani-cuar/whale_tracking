@@ -1,9 +1,10 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox, filedialog, simpledialog
 from datetime import datetime
 import csv
 import time
 import os
+import gps
 
 class StartScreen(tk.Frame):
     def __init__(self, parent, app, handlers, *args, **kwargs):
@@ -60,7 +61,7 @@ class StartScreen(tk.Frame):
         )
         start_card.grid(row=0, column=0, padx=20)
 
-        # Tarjeta 2: View Logs (por ahora solo muestra un mensaje)
+        # Tarjeta 2: View Logs
         logs_card = self._create_card(
             cards_frame,
             title="View Logs",
@@ -185,15 +186,15 @@ class StartScreen(tk.Frame):
         self.app.show_screen("logs")
 
     def _configure_gps(self):
-        """Otro placeholder para futura configuración."""
-        messagebox.showinfo("GPS", "Aquí podrías configurar el GPS/dispositivo.")
+        """Ir a la pantalla de configuración."""
+        self.app.show_screen("config")
 
 class TrackingScreen(tk.Frame):
     def __init__(self, parent, app, handlers, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
         self.app = app
         self.handlers = handlers
-
+    
         # Crear un marco exterior con borde gris y margen interior
         outer_frame = tk.Frame(self, bd=0.5, relief="solid", bg="white")  # Borde gris claro
         outer_frame.pack(padx=20, pady=20)  # Margen interior de 20 píxeles
@@ -379,7 +380,7 @@ class TrackingScreen(tk.Frame):
             outer_frame,
             text="← Back",
             font=("Arial", 10),
-            bg="#6b7280",
+            bg="#6B7280",
             fg="white",
             command=lambda: self.app.show_screen("start")
         )
@@ -392,17 +393,25 @@ class TrackingScreen(tk.Frame):
         general_route_label = tk.Label(outer_frame, text="General Route", font=("Arial", 14), bg="white")
         general_route_label.place(x=750, y=10)
 
-        start_button_general_tracking = tk.Button(outer_frame, text="Start", font=("Arial", 12), bg="black", fg="white")
-        start_button_general_tracking.place(x=910, y=10, width=100, height=25)
+        # ------- General Route (tracking global) ---
+        self.start_button_general_tracking = tk.Button(outer_frame, text="Start", font=("Arial", 12), bg="black", fg="white", command=self.start_general_tracking)
+        self.start_button_general_tracking.place(x=910, y=10, width=100, height=25)
 
-        stop_button_general_tracking = tk.Button(outer_frame, text="Stop", font=("Arial", 12), bg="black", fg="white")
-        stop_button_general_tracking.place(x=1030, y=10, width=100, height=25)
+        self.stop_button_general_tracking = tk.Button(outer_frame, text="Stop", font=("Arial", 12), bg="black", fg="white", command=self.stop_general_tracking)
+        self.stop_button_general_tracking.place(x=1030, y=10, width=100, height=25)
+
+        # Estado del tracking general
+        self.general_tracking_active = False
+        self.general_tracking_job = None   # id del after()
+        self.general_route_file = None     # ruta del CSV
+        self.general_interval_min = 5      # valor por defecto (n minutos)
 
         # diccionario para llevar el estado del tracking
         status_labels = {
             "A": status_whale_a,
             "B": status_whale_b,
         }
+
         ###--------------------------------SECCIÓN 2 - FORMULARIO DE REGISTRO--------------------------------###
         # Colores y fuentes
         HEADER_BG = "#f5f5f7"
@@ -535,7 +544,7 @@ class TrackingScreen(tk.Frame):
             if "save_whale" in handlers:
                 handlers["save_whale"]("A", data)      
 
-        save_button_whale_a = tk.Button(outer_frame, text="Save Whale A", font=("Arial", 12), bg="#5bc0ff", fg="white", command=on_save_whale_a)
+        save_button_whale_a = tk.Button(outer_frame, text="Save Whale A", font=("Arial", 12), bg="#2563EB", fg="white", command=on_save_whale_a)
         save_button_whale_a.place(x=1024, y=115, width=105, height=20)
 
         # ---------- FORMULARIO B ----------
@@ -565,7 +574,7 @@ class TrackingScreen(tk.Frame):
             if "save_whale" in handlers:
                 handlers["save_whale"]("B", data)
 
-        save_button_whale_b = tk.Button(outer_frame, text="Save Whale B", font=("Arial", 12), bg="#5bc0ff", fg="white", command=on_save_whale_b)
+        save_button_whale_b = tk.Button(outer_frame, text="Save Whale B", font=("Arial", 12), bg="#2563EB", fg="white", command=on_save_whale_b)
         save_button_whale_b.place(x=1024, y=235, width=105, height=20)
 
         ###---------------------------------------SECCIÓN 3 - ÚLTIMOS REGISTROS-----------------------------------###
@@ -745,6 +754,119 @@ class TrackingScreen(tk.Frame):
 
         # Dejamos accesible a main.py
         handlers["refresh_last_records"] = refresh_last_records
+    
+    #----------- FUNCIONES PARA EL GPS GLOBAL -------------#
+    def start_general_tracking(self):
+        if self.general_tracking_active:
+            messagebox.showinfo("General Route", "El tracking general ya está en marcha.")
+            return
+
+        # Asegurarse de que hay handler para posición
+        if "get_current_position" not in self.handlers:
+            messagebox.showerror("Error", "No hay handler para obtener posición GPS.")
+            return
+
+        # Preguntar cada cuántos minutos quieres registrar
+        n = simpledialog.askinteger(
+            "Intervalo de registro",
+            "¿Cada cuántos minutos quieres guardar la posición?",
+            initialvalue=self.general_interval_min,
+            minvalue=1,
+            parent=self,
+        )
+        if n is None:
+            return  # canceló
+
+        self.general_interval_min = n
+        interval_ms = n * 60 * 1000
+
+        # Usa una carpeta fija de prueba:
+        folder = os.getcwd()
+
+        # Crear nombre de archivo con timestamp
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"general_route_{timestamp}.csv"
+        self.general_route_file = os.path.join(folder, filename)
+
+        # Escribir encabezado
+        try:
+            with open(self.general_route_file, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(["timestamp", "latitude_longitude"])
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo crear el archivo:\n{e}")
+            self.general_route_file = None
+            return
+
+        # Marcar como activo y cambiar colores
+        self.general_tracking_active = True
+        self.start_button_general_tracking.config(bg="#16A34A")  # verde
+        self.stop_button_general_tracking.config(bg="#DC2626")   # rojo
+
+        # Guardar intervalo y lanzar primera captura
+        self.general_interval_ms = interval_ms
+        self._capture_general_point()  # primera captura inmediata
+
+    def _capture_general_point(self):
+        """Captura una posición y programa la siguiente captura."""
+        if not self.general_tracking_active:
+            return
+        if not self.general_route_file:
+            return
+
+        # Obtener posición del handler (no ligada a A o B, así que paso None)
+        try:
+            pos = self.handlers["get_current_position"](None)
+        except Exception as e:
+            print("Error obteniendo posición GPS:", e)
+            pos = "GPS_ERROR"
+
+        # Timestamp actual
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Guardar en el CSV
+        try:
+            with open(self.general_route_file, "a", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow([ts, pos])
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo escribir en el archivo de tracking:\n{e}")
+            # si falla, mejor detener el tracking
+            self.stop_general_tracking(show_message=False)
+            return
+
+        # Programar siguiente captura
+        self.general_tracking_job = self.after(self.general_interval_ms, self._capture_general_point)
+
+    def stop_general_tracking(self, show_message=True):
+        if not self.general_tracking_active:
+            if show_message:
+                messagebox.showinfo("General Route", "No hay tracking general en marcha.")
+            return
+
+        self.general_tracking_active = False
+
+        # Cancelar after si está programado
+        if self.general_tracking_job is not None:
+            try:
+                self.after_cancel(self.general_tracking_job)
+            except Exception:
+                pass
+            self.general_tracking_job = None
+
+        # Reset colores de botones
+        self.start_button_general_tracking.config(bg="black")
+        self.stop_button_general_tracking.config(bg="black")
+
+        # Avisar dónde quedó el archivo
+        if show_message and self.general_route_file:
+            messagebox.showinfo(
+                "Tracking general finalizado",
+                f"Se guardó el tracking general en:\n{self.general_route_file}"
+            )
+
+        # Opcional: podrías resetear self.general_route_file si quieres
+        # self.general_route_file = None
 
 class LogsScreen(tk.Frame):
     def __init__(self, parent, app, handlers, *args, **kwargs):
@@ -774,6 +896,9 @@ class LogsScreen(tk.Frame):
         filter_frame = tk.Frame(self, bg=BG)
         filter_frame.pack(pady=10)
 
+        actions_frame = tk.Frame(self, bg=BG)
+        actions_frame.pack(pady=(5,10))
+
         tk.Label(
             filter_frame,
             text="From (YYYY-MM-DD):",
@@ -796,11 +921,22 @@ class LogsScreen(tk.Frame):
         self.entry_to = tk.Entry(filter_frame, width=12)
         self.entry_to.grid(row=0, column=3, padx=5, pady=5)
 
+        # Paleta de colores para botones
+        COLORS = {
+            "primary": "#2563EB",     # Filter, Export
+            "secondary": "#6B7280",   # Clear, Back
+            "success": "#16A34A",     # Refresh
+            "danger": "#DC2626",      # Delete
+            "backup": "#1E3A8A",      # Backup DB
+            "text": "#111827",
+            "bg": "#F3F4F6",
+        }
+
         filter_btn = tk.Button(
             filter_frame,
             text="Filter",
             font=("Arial", 10),
-            bg="black",
+            bg=COLORS["primary"],
             fg="white",
             command=self.apply_filter         
         )
@@ -810,57 +946,57 @@ class LogsScreen(tk.Frame):
             filter_frame,
             text="Clear",
             font=("Arial", 10),
-            bg="#9ca3af",
+            bg=COLORS["secondary"],
             fg="white",
             command=self.clear_filters
         )
         clear_btn.grid(row=0, column=5, padx=10, pady=5)
 
         export_btn = tk.Button(
-            filter_frame,
+            actions_frame,
             text="Export CSV",
             font=("Arial", 10),
-            bg="#2563eb",
+            bg=COLORS["primary"],
             fg="white",
             command=self.export_csv         
         )
         export_btn.grid(row=0, column=6, padx=10, pady=5)
 
         delete_btn = tk.Button(
-            filter_frame,
+            actions_frame,
             text="Delete selected",
             font=("Arial", 10),
-            bg="#dc2626",
+            bg=COLORS["danger"],
             fg="white",
             command=self.delete_selected
         )
         delete_btn.grid(row=0, column=7, padx=10, pady=5)
 
         refresh_btn = tk.Button(
-            filter_frame,
+            actions_frame,
             text="Refresh",
             font=("Arial", 10),
-            bg="#10b981",
+            bg=COLORS["success"],
             fg="white",
             command=self.refresh_view
         )
         refresh_btn.grid(row=0, column=8, padx=10, pady=5)
 
         backup_btn = tk.Button(
-            filter_frame,
+            actions_frame,
             text="Backup DB",
             font=("Arial", 10),
-            bg="#4b5563",
+            bg=COLORS["backup"],
             fg="white",
             command=self.backup_db
         )
         backup_btn.grid(row=0, column=9, padx=10, pady=5)
 
         back_btn = tk.Button(
-            filter_frame,
+            actions_frame,
             text="← Back",
             font=("Arial", 10),
-            bg="#6b7280",
+            bg= COLORS["secondary"],
             fg="white",
             command=lambda: self.app.show_screen("start")
         )
@@ -1192,3 +1328,271 @@ class LogsScreen(tk.Frame):
             "Backup creado",
             f"Backup creado correctamente en:\n{backup_path}"
         )
+
+# class ConfigScreen(tk.Frame):
+#     def __init__(self, parent, app, handlers, *args, **kwargs):
+#         super().__init__(parent, *args, **kwargs)
+
+#         self.app = app
+#         self.handlers = handlers
+
+#         self.config_data = gps.load_config()
+
+#         bg = "#f5f7fb"
+#         text = "#111827"
+
+#         self.configure(bg=bg)
+
+#         title = tk.Label(
+#             self,
+#             text="GPS Configuration",
+#             font=("Arial", 22, "bold"),
+#             bg=bg,
+#             fg=text
+#         )
+#         title.pack(pady=(140,10))
+
+#         # ----- Tarjeta centrada -----
+#         card = tk.Frame(self, bg="white", bd=1, relief="solid")
+#         card.place(relx=0.5, rely=0.5, anchor="center")  # 👈 centro pantalla
+
+#         # márgenes internos de la tarjeta
+#         inner = tk.Frame(card, bg="white")
+#         inner.pack(padx=40, pady=30)
+
+#         # ------- PORT -------
+#         tk.Label(inner, text="Port (COM / tty):", bg=bg, fg=text).grid(row=0, column=0, sticky="e", pady=8)
+#         self.entry_port = tk.Entry(inner, width=20)
+#         self.entry_port.insert(0, self.config_data.get("port", "COM3"))
+#         self.entry_port.grid(row=0, column=1, padx=10)
+
+#         # ------- BAUDRATE -------
+#         tk.Label(inner, text="Baudrate:", bg=bg, fg=text).grid(row=1, column=0, sticky="e", pady=8)
+#         self.entry_baud = tk.Entry(inner, width=20)
+#         self.entry_baud.insert(0, self.config_data.get("baudrate", 4800))
+#         self.entry_baud.grid(row=1, column=1, padx=10)
+
+#         # ------- USE MOCK -------
+#         self.use_mock_var = tk.BooleanVar()
+#         self.use_mock_var.set(self.config_data.get("use_mock", True))
+
+#         chk = tk.Checkbutton(
+#             inner,
+#             text="Use simulated GPS (testing mode)",
+#             variable=self.use_mock_var,
+#             bg=bg,
+#             fg=text,
+#             font=("Arial", 10),
+#             anchor="w"
+#         )
+#         chk.grid(row=2, column=0, columnspan=2, pady=(12, 20), sticky="w")
+
+#         # ------- BOTONES alineados al centro -------
+#         btn_frame = tk.Frame(inner, bg="white")
+#         btn_frame.grid(row=3, column=0, columnspan=2)
+
+#         test_btn = tk.Button(
+#             btn_frame,
+#             text="Test GPS",
+#             font=("Arial", 10),
+#             bg="#2563EB",
+#             fg="white",
+#             width=10,
+#             command=self.test_gps
+#         )
+#         test_btn.grid(row=0, column=0, padx=5)
+
+#         save_btn = tk.Button(
+#             btn_frame,
+#             text="Save",
+#             font=("Arial", 10),
+#             bg="#16A34A",
+#             fg="white",
+#             width=10,
+#             command=self.save_config
+#         )
+#         save_btn.grid(row=0, column=1, padx=5)
+
+#         back_btn = tk.Button(
+#             btn_frame,
+#             text="← Back",
+#             font=("Arial", 10),
+#             bg="#6B7280",
+#             fg="white",
+#             width=10,
+#             command=lambda: self.app.show_screen("start")
+#         )
+#         back_btn.grid(row=0, column=2, padx=5)
+
+#     # ---------------- TEST GPS ----------------
+#     def test_gps(self):
+#         cfg = {
+#             "port": self.entry_port.get(),
+#             "baudrate": int(self.entry_baud.get()),
+#             "use_mock": self.use_mock_var.get()
+#         }
+
+#         if cfg["use_mock"]:
+#             messagebox.showinfo("Test OK", "Simulated GPS is active.\nThis mode does not read real hardware.")
+#             return
+
+#         try:
+#             lat, lon = gps.test_connection(cfg)
+#             messagebox.showinfo("GPS OK", f"Fix acquired:\nLat: {lat:.5f}\nLon: {lon:.5f}")
+#         except Exception as e:
+#             messagebox.showerror("Error", f"Could not read GPS:\n{e}")
+
+#     # ---------------- SAVE CONFIG ----------------
+#     def save_config(self):
+#         new_cfg = {
+#             "port": self.entry_port.get(),
+#             "baudrate": int(self.entry_baud.get()),
+#             "use_mock": self.use_mock_var.get()
+#         }
+
+#         gps.save_config(new_cfg)
+
+#         if "configure_gps" in self.handlers:
+#             self.handlers["configure_gps"](new_cfg)
+
+#         messagebox.showinfo("Saved", "GPS configuration saved.")
+#         self.app.show_screen("start")
+
+class ConfigScreen(tk.Frame):
+    def __init__(self, parent, app, handlers, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
+
+        self.app = app
+        self.handlers = handlers
+
+        self.config_data = gps.load_config()
+
+        bg = "#f5f7fb"
+        text = "#111827"
+
+        self.configure(bg=bg)
+
+        title = tk.Label(
+            self,
+            text="GPS Configuration",
+            font=("Arial", 22, "bold"),
+            bg=bg,
+            fg=text
+        )
+        title.pack(pady=(140, 10))
+
+        # ----- Tarjeta centrada -----
+        card = tk.Frame(self, bg="white", bd=1, relief="solid")
+        card.place(relx=0.5, rely=0.5, anchor="center")
+
+        inner = tk.Frame(card, bg="white")
+        inner.pack(padx=40, pady=30)
+
+        # Texto explicativo
+        info = tk.Label(
+            inner,
+            text=(
+                "This app can use the Windows GNSS location sensor\n"
+                "(u-blox) or a simulated GPS for testing."
+            ),
+            bg="white",
+            fg=text,
+            font=("Arial", 10),
+            justify="left"
+        )
+        info.grid(row=0, column=0, columnspan=2, pady=(0, 15), sticky="w")
+
+        # ------- USE MOCK -------
+        self.use_mock_var = tk.BooleanVar()
+        self.use_mock_var.set(self.config_data.get("use_mock", True))
+
+        chk = tk.Checkbutton(
+            inner,
+            text="Use simulated GPS (testing mode)",
+            variable=self.use_mock_var,
+            bg="white",
+            fg=text,
+            font=("Arial", 10),
+            anchor="w"
+        )
+        chk.grid(row=1, column=0, columnspan=2, pady=(0, 20), sticky="w")
+
+        # ------- BOTONES -------
+        btn_frame = tk.Frame(inner, bg="white")
+        btn_frame.grid(row=2, column=0, columnspan=2)
+
+        test_btn = tk.Button(
+            btn_frame,
+            text="Test GPS",
+            font=("Arial", 10),
+            bg="#2563EB",
+            fg="white",
+            width=10,
+            command=self.test_gps
+        )
+        test_btn.grid(row=0, column=0, padx=5)
+
+        save_btn = tk.Button(
+            btn_frame,
+            text="Save",
+            font=("Arial", 10),
+            bg="#16A34A",
+            fg="white",
+            width=10,
+            command=self.save_config
+        )
+        save_btn.grid(row=0, column=1, padx=5)
+
+        back_btn = tk.Button(
+            btn_frame,
+            text="← Back",
+            font=("Arial", 10),
+            bg="#6B7280",
+            fg="white",
+            width=10,
+            command=lambda: self.app.show_screen("start")
+        )
+        back_btn.grid(row=0, column=2, padx=5)
+
+    # ---------------- TEST GPS ----------------
+    def test_gps(self):
+        use_mock = self.use_mock_var.get()
+
+        if use_mock:
+            messagebox.showinfo(
+                "Test OK",
+                "Simulated GPS is active.\n"
+                "Switch off this option to test the real GNSS sensor."
+            )
+            return
+
+        try:
+            # test_connection ya ignora config, así que no le pasamos nada
+            lat, lon = gps.test_connection()
+            messagebox.showinfo(
+                "GPS OK",
+                f"Fix acquired:\nLat: {lat:.5f}\nLon: {lon:.5f}"
+            )
+        except gps.GPSNotAvailable as e:
+            messagebox.showerror(
+                "GPS not available",
+                f"{e}\n\nCheck that:\n"
+                "- The GNSS sensor is enabled in Windows.\n"
+                "- You have location permissions."
+            )
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not read GPS:\n{e}")
+
+    # ---------------- SAVE CONFIG ----------------
+    def save_config(self):
+        new_cfg = {
+            "use_mock": self.use_mock_var.get()
+        }
+
+        gps.save_config(new_cfg)
+
+        if "configure_gps" in self.handlers:
+            self.handlers["configure_gps"](new_cfg)
+
+        messagebox.showinfo("Saved", "GPS configuration saved.")
+        self.app.show_screen("start")

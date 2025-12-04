@@ -1,7 +1,9 @@
 from tkinter import messagebox
 import tkinter as tk
-from gui import StartScreen, TrackingScreen, LogsScreen
+from tkinter import ttk
+from gui import StartScreen, TrackingScreen, LogsScreen, ConfigScreen
 import database
+import gps
 
 handlers = {}  # diccionario global compartido con la GUI
 
@@ -157,14 +159,29 @@ def fetch_records_by_date_handler(start_date, end_date):
     return database.get_records_by_date(start_date, end_date)
 
 def get_current_position_handler(whale_id):
-    # aquí luego podrás conectar con GPS, NMEA, o lo que uses
-    return "N00°00.000', W000°00.000'"  # ejemplo
+    return gps.get_current_position(whale_id)
+    # return "0.000000, 0.000000" 
+
+def configure_gps_handler(config_dict):
+    """
+    Guarda configuración de GPS recibida desde la GUI.
+    config_dict es algo tipo:
+    {
+        "port": "COM3",
+        "baudrate": 4800,
+        "use_mock": True/False
+    }
+    """
+    gps.save_config(config_dict)
 
 # --------------------- CLASE APP --------------------------------
 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
+        
+        # aplicar estilos ttk (botones redondeados, colores, etc.)
+        # init_styles(self)
 
         # init ventana base
         self.title("Whale System - Inicio")
@@ -200,6 +217,7 @@ class App(tk.Tk):
         self.handlers["fetch_records_by_date"] = fetch_records_by_date_handler
         self.handlers["delete_records"] = database.delete_records
         self.handlers["backup_db"] = database.backup_database
+        self.handlers["configure_gps"] = configure_gps_handler
         # database.debug_print_all_records()
 
         # si alguna pantalla quiere acceder a la app
@@ -213,6 +231,12 @@ class App(tk.Tk):
                 self.geometry("1200x650")
                 self.title("Whale Tracking System")
             elif name == "tracking":
+                self.geometry("1200x650")
+                self.title("Whale Tracking System")
+            elif name == "logs":
+                self.geometry("1200x650")
+                self.title("Whale Tracking System")
+            elif name == "config":
                 self.geometry("1200x650")
                 self.title("Whale Tracking System")
             self.screens[name].tkraise()
@@ -235,6 +259,10 @@ class App(tk.Tk):
             self.title("Tracking History")
             frame = LogsScreen(self.container, self, self.handlers)
 
+        elif name == "config":
+            self.geometry("1200x650")
+            self.title("GPS Configuration")
+            frame = ConfigScreen(self.container, self, self.handlers)
         else:
             raise ValueError(f"Pantalla desconocida: {name}")
 
