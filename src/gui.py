@@ -203,23 +203,26 @@ class TrackingScreen(tk.Frame):
         # ------  Lógica para rastreo de tiempo por ballena --------------#
         # Labels (columns)
         columns = [
-            "ID", "Init Pos", "Final Pos", "Time", "# Sightings",
+            "ID", "M-C", "Init Pos", "Init Time", "Final Pos", "Final Time", "Surface Time", "# Sightings",
             "Behavior", "# Blows", "First Blow",
-            "# Whales", "Individual (letter)", "Initial Distance",
+            "# Whales", "Individual (letter)", "Initial Distance", "Angle",
             "# Photos", "Fluke", "Shallow dive", "# Skin Sample",
-            "Feces in Trail", "# Boats", "Boat Speed",
+            "Feces", "# Feces", "# Boats", "Boat Speed",
             "WW-Whale Distance", "Engine On",
             "# Visibility", "Hydrophone", "Observations"
         ]
         # índices útiles
         IDX_INIT_POS  = columns.index("Init Pos")
+        IDX_INIT_TIME  = columns.index("Init Time")
         IDX_FINAL_POS = columns.index("Final Pos")
-        IDX_TIME      = columns.index("Time")
+        IDX_FINAL_TIME  = columns.index("Final Time")
+        IDX_TIME      = columns.index("Surface Time")
 
         # diccionario para guardar el momento en que se presionó Start por ballena
         start_times = {
             "A": None,
             "B": None,
+            "C": None,
         }
 
         def format_elapsed(seconds):
@@ -233,8 +236,10 @@ class TrackingScreen(tk.Frame):
         def get_whale_row(whale_id):
             if whale_id == "A":
                 return whale_row_A
-            else:
+            elif whale_id == "B":
                 return whale_row_B
+            else:
+                return whale_row_C
 
         # funciones para cambiar de estado el label
         def set_status_tracking(whale_id):
@@ -268,6 +273,15 @@ class TrackingScreen(tk.Frame):
             else:
                 widget_init.delete(0, "end")
                 widget_init.insert(0, pos)
+
+            # 4) Escribir en Init Time la hora actual
+            init_time = time.strftime("%H:%M:%S", time.localtime())  # Formato: "YYYY-MM-DD HH:MM:SS"
+            widget_init_time = row[IDX_INIT_TIME]  # Asumimos que IDX_INIT_TIME es el índice correcto para el campo de Init Time
+            if isinstance(widget_init_time, tk.StringVar):
+                widget_init_time.set(init_time)
+            else:
+                widget_init_time.delete(0, "end")
+                widget_init_time.insert(0, init_time)
 
             # (opcional) limpiar Final Pos y Time
             widget_final = row[IDX_FINAL_POS]
@@ -324,6 +338,15 @@ class TrackingScreen(tk.Frame):
                 widget_time.delete(0, "end")
                 widget_time.insert(0, time_str)
 
+            # 3) Escribir la hora de finalización (Final Time)
+            final_time = time.strftime("%H:%M:%S", time.localtime())  # Hora de finalización
+            widget_final_time = row[IDX_FINAL_TIME]  # Asumimos que IDX_FINAL_TIME es el índice correcto para Final Time
+
+            if isinstance(widget_final_time, tk.StringVar):
+                widget_final_time.set(final_time)
+            else:
+                widget_final_time.delete(0, "end")
+                widget_final_time.insert(0, final_time)
         # ------------- lógica para llevar el estado del tracking ---------#
         def set_status_available(whale_id):
             lbl = status_labels[whale_id]
@@ -344,37 +367,53 @@ class TrackingScreen(tk.Frame):
         canvas.create_line(0, line_height, 1160, line_height, fill="black", width=1)
 
         # linea vertical que separa whale A de B
-        line_x = 1160 // 2  
+        line_x = 1160 // 3  
         canvas.create_line(line_x, 52, line_x, 100, fill="black", width=1)
+        line_x2 = 774  
+        canvas.create_line(line_x2, 52, line_x2, 100, fill="black", width=1)
 
         # Añadir las etiquetas y botones para "Whale A" y "Whale B"
         # Fila 1: Whale A
         whale_a_label = tk.Label(outer_frame, text="Whale A", font=("Arial", 14), bg="white")
-        whale_a_label.place(x=50, y=65)
+        whale_a_label.place(x=10, y=65)
 
         # Rectángulo informativo para "Available" (verde)
         status_whale_a = tk.Label(outer_frame, text="Available", font=("Arial", 12), bg="green", fg="white")
-        status_whale_a.place(x=210, y=65, width=100, height=25)  
+        status_whale_a.place(x=100, y=65, width=80, height=25)  
 
         start_button_whale_a = tk.Button(outer_frame, text="Start", font=("Arial", 12), bg="black", fg="white", command=lambda: on_start_whale("A"))
-        start_button_whale_a.place(x=330, y=65, width=100, height=25)
+        start_button_whale_a.place(x=190, y=65, width=80, height=25)
 
         stop_button_whale_a = tk.Button(outer_frame, text="Stop", font=("Arial", 12), bg="black", fg="white", command=lambda: on_stop_whale("A"))
-        stop_button_whale_a.place(x=450, y=65, width=100, height=25)
+        stop_button_whale_a.place(x=280, y=65, width=80, height=25)
 
         # Fila 2: Whale B
         whale_b_label = tk.Label(outer_frame, text="Whale B", font=("Arial", 14), bg="white")
-        whale_b_label.place(x=630, y=65, width=100, height=25)
+        whale_b_label.place(x=397, y=65, width=80, height=25)
 
         # Rectángulo informativo para "Available" (verde)
         status_whale_b = tk.Label(outer_frame, text="Available", font=("Arial", 12), bg="green", fg="white")
-        status_whale_b.place(x=790, y=65, width=100, height=25) 
+        status_whale_b.place(x=490, y=65, width=80, height=25) 
 
         start_button_whale_b = tk.Button(outer_frame, text="Start", font=("Arial", 12), bg="black", fg="white", command=lambda: on_start_whale("B"))
-        start_button_whale_b.place(x=910, y=65, width=100, height=25)
+        start_button_whale_b.place(x=580, y=65, width=80, height=25)
 
         stop_button_whale_b = tk.Button(outer_frame, text="Stop", font=("Arial", 12), bg="black", fg="white", command=lambda: on_stop_whale("B"))
-        stop_button_whale_b.place(x=1030, y=65, width=100, height=25)
+        stop_button_whale_b.place(x=670, y=65, width=80, height=25)
+
+        # Fila 3: Whale C
+        whale_c_label = tk.Label(outer_frame, text="Whale C", font=("Arial", 14), bg="white")
+        whale_c_label.place(x=783, y=65, width=80, height=25)
+
+        # Rectángulo informativo para "Available" (verde)
+        status_whale_c = tk.Label(outer_frame, text="Available", font=("Arial", 12), bg="green", fg="white")
+        status_whale_c.place(x=873, y=65, width=80, height=25) 
+
+        start_button_whale_c = tk.Button(outer_frame, text="Start", font=("Arial", 12), bg="black", fg="white", command=lambda: on_start_whale("C"))
+        start_button_whale_c.place(x=963, y=65, width=80, height=25)
+
+        stop_button_whale_c = tk.Button(outer_frame, text="Stop", font=("Arial", 12), bg="black", fg="white", command=lambda: on_stop_whale("C"))
+        stop_button_whale_c.place(x=1053, y=65, width=80, height=25)
 
         # Botón Back (volver a la pantalla de inicio)
         back_btn = tk.Button(
@@ -385,7 +424,7 @@ class TrackingScreen(tk.Frame):
             fg="white",
             command=lambda: self.app.show_screen("start")
         )
-        back_btn.place(x=540, y=570, width=80, height=25)
+        back_btn.place(x=540, y=583, width=80, height=20)
 
         # Añadir textos real time tracking y general tracking
         real_time_label = tk.Label(outer_frame, text="Real Time Tracking", font=("Arial", 14), bg="white")
@@ -411,6 +450,7 @@ class TrackingScreen(tk.Frame):
         status_labels = {
             "A": status_whale_a,
             "B": status_whale_b,
+            "C": status_whale_c,
         }
 
         ###--------------------------------SECCIÓN 2 - FORMULARIO DE REGISTRO--------------------------------###
@@ -422,21 +462,21 @@ class TrackingScreen(tk.Frame):
         new_record_label = tk.Label(
             outer_frame,
             text="Enter new record",
-            font=("Arial", 12, "bold"),
+            font=("Arial", 10, "bold"),
             bg=FORM_BG,
             fg=TEXT_GRAY
         )
-        new_record_label.place(x=10, y=110)
+        new_record_label.place(x=10, y=105)
 
         def create_whale_form(frame, whale_id_letter, row_index):
             """Create one row of column titles + input widgets inside `frame`."""
 
             labels = [
-                "ID", "Init Pos", "Final Pos", "Time", "# Sightings",
+                "ID", "M-C", "Init Pos","Init Time", "Final Pos", "Final Time", "Surface Time", "# Sightings",
                 "Behavior", "# Blows", "First Blow",
-                "# Whales", "Individual (letter)", "Initial Distance",
+                "# Whales", "Individual (letter)", "Initial Distance", "Angle",
                 "# Photos", "Fluke", "Shallow dive", "# Skin Sample",
-                "Feces in Trail", "# Boats", "Boat Speed",
+                "Feces", "# Feces", "# Boats", "Boat Speed",
                 "WW-Whale Distance", "Engine On",
                 "# Visibility", "Hydrophone", "Observations"
             ]
@@ -451,13 +491,16 @@ class TrackingScreen(tk.Frame):
                 "First Blow": ["Y", "N"],
                 "Fluke": ["Y", "N"],
                 "Shallow dive": ["Y", "N"],
-                "Feces in Trail": ["Y", "N", "1", "2", "3", "4+"],
+                "Feces": ["N", "Y"],
+                "M-C": ["0", "M-Madre", "C-Cria"],
                 "Engine On": ["Y", "N"],
                 "Hydrophone": ["Y", "N"]
             }
 
             entries = []
-
+            # --- Almacenaremos todos los StringVar para que no sean borrados por Python ---
+            # Esto es vital para que el Combobox mantenga su valor.
+            frame._string_vars = []
             for col, label in enumerate(labels):
                 # Header cell
                 tk.Label(
@@ -482,7 +525,7 @@ class TrackingScreen(tk.Frame):
                 # Input cell just below
                 if label in options:
                     var = tk.StringVar(frame)
-                    var.set(options[label][0])
+                    var.set(options[label][0]) # Establece el valor por defecto
                     combo = ttk.Combobox(
                         frame,
                         textvariable=var,
@@ -491,7 +534,53 @@ class TrackingScreen(tk.Frame):
                         state="readonly"
                     )
                     combo.grid(row=row_index + 1, column=col, padx=6, pady=(0, 5), sticky="we")
-                    entries.append(var)
+                    # --- CORRECCIÓN VITAL: Mantener la variable viva ---
+                    frame._string_vars.append(var)
+                    entries.append(combo) # Devolvemos el widget para el scroll/get
+                elif label == "# Skin Sample":
+                    # For "# Skin Sample", set the default value to 0
+                    skin_sample_var = tk.StringVar(frame, value="0")  # Default value is 0
+                    entry = ttk.Entry(frame, width=16)
+                    # Aseguramos que el valor "0" se muestre inmediatamente, si textvariable falla.
+                    entry.insert(0, "0")
+                    entry.grid(row=row_index + 1, column=col, padx=6, pady=(0, 5), sticky="we")
+                    entries.append(entry)  # Add the StringVar to the list of entries
+                elif label == "# Feces":
+                    # For "# Feces", set the default value to 0
+                    feces = tk.StringVar(frame, value="0")  # Default value is 0
+                    entry = ttk.Entry(frame, width=16)
+                    # Aseguramos que el valor "0" se muestre inmediatamente, si textvariable falla.
+                    entry.insert(0, "0")
+                    entry.grid(row=row_index + 1, column=col, padx=6, pady=(0, 5), sticky="we")
+                    entries.append(entry)  # Add the StringVar to the list of entries                    
+                elif label == "# Boats":
+                    # For "# Boats", set the default value to 0
+                    boats_var = tk.StringVar(frame, value="0")  # Default value is 0
+                    entry = ttk.Entry(frame, width=16)
+                    entry.insert(0, "0")
+                    entry.grid(row=row_index + 1, column=col, padx=6, pady=(0, 5), sticky="we")
+                    entries.append(entry)  # Add the StringVar to the list of entries
+                elif label == "Boat Speed":
+                    # For "Boat Speed", set the default value to 0
+                    boat_speed_var = tk.StringVar(frame, value="0")  # Default value is 0
+                    entry = ttk.Entry(frame, width=16)
+                    entry.insert(0, "0")
+                    entry.grid(row=row_index + 1, column=col, padx=6, pady=(0, 5), sticky="we")
+                    entries.append(entry)  # Add the StringVar to the list of entries
+                elif label == "# Blows":
+                    # For "Boat Speed", set the default value to 0
+                    blows_var = tk.StringVar(frame, value="0")  # Default value is 0
+                    entry = ttk.Entry(frame, width=16)
+                    entry.insert(0, "0")
+                    entry.grid(row=row_index + 1, column=col, padx=6, pady=(0, 5), sticky="we")
+                    entries.append(entry)  # Add the StringVar to the list of entries
+                elif label == "WW-Whale Distance":
+                    # For "WW-Whale Distance", set the default value to 0
+                    ww_whale_dist_var = tk.StringVar(frame, value="0")  # Default value is 0
+                    entry = ttk.Entry(frame, width=16)
+                    entry.insert(0, "0")
+                    entry.grid(row=row_index + 1, column=col, padx=6, pady=(0, 5), sticky="we")
+                    entries.append(entry)  # Add the StringVar to the list of entries
                 else:
                     entry = ttk.Entry(frame, width=16)
                     entry.grid(row=row_index + 1, column=col, padx=6, pady=(0, 5), sticky="we")
@@ -517,14 +606,97 @@ class TrackingScreen(tk.Frame):
             return data
 
         # ---------- FORMULARIO A ----------
+        def ensure_visible_h(canvas, widget, padding=20):
+            """
+            Mueve el canvas horizontalmente y verticalmente para que 'widget'
+            quede dentro de la zona visible cuando recibe el foco.
+            """
+            canvas.update_idletasks()  # Asegura que las coordenadas sean actuales
+            widget.update_idletasks()  # Asegura que el widget esté actualizado
+
+            # 1. Dimensiones de la vista actual (en este caso, con desplazamiento)
+            x0_view = canvas.canvasx(0)
+            y0_view = canvas.canvasy(0)
+            canvas_width = canvas.winfo_width()
+            canvas_height = canvas.winfo_height()
+            x1_view = x0_view + canvas_width
+            y1_view = y0_view + canvas_height
+
+            # 2. Posición mundial (scrollregion) del widget
+            widget_world_x = widget.winfo_x()
+            widget_world_y = widget.winfo_y()
+            widget_width = widget.winfo_width()
+            widget_height = widget.winfo_height()
+            widget_world_x1 = widget_world_x + widget_width  # Borde derecho mundial
+            widget_world_y1 = widget_world_y + widget_height  # Borde inferior mundial
+
+            # 3. Ancho y alto total para la normalización
+            bbox = canvas.bbox("all")
+            if not bbox:
+                return
+            total_width = bbox[2] - bbox[0]
+            total_height = bbox[3] - bbox[1]
+            if total_width <= 0 or total_height <= 0:
+                return
+
+            new_x0, new_y0 = None, None
+
+            # Caso 1: Widget demasiado a la izquierda
+            if widget_world_x - padding < x0_view:
+                new_x0 = widget_world_x - padding
+
+            # Caso 2: Widget demasiado a la derecha
+            elif widget_world_x1 + padding > x1_view:
+                new_x0 = widget_world_x1 + padding - canvas_width
+
+            # Caso 3: Widget demasiado arriba
+            if widget_world_y - padding < y0_view:
+                new_y0 = widget_world_y - padding
+
+            # Caso 4: Widget demasiado abajo
+            elif widget_world_y1 + padding > y1_view:
+                new_y0 = widget_world_y1 + padding - canvas_height
+
+            # Desplazamos solo si es necesario
+            if new_x0 is not None or new_y0 is not None:
+                if new_x0 is not None:
+                    # 4. Asegurar límites (new_x0 nunca puede ser negativo)
+                    if new_x0 < 0:
+                        new_x0 = 0
+                    fraction_x = new_x0 / total_width
+                    fraction_x = max(0, min(1, fraction_x))
+                    canvas.xview_moveto(fraction_x)
+
+                if new_y0 is not None:
+                    # 5. Asegurar límites (new_y0 nunca puede ser negativo)
+                    if new_y0 < 0:
+                        new_y0 = 0
+                    fraction_y = new_y0 / total_height
+                    fraction_y = max(0, min(1, fraction_y))
+                    canvas.yview_moveto(fraction_y)
+
+        def bind_autoscroll_to_widgets(canvas, widgets):
+            def on_focus(event, c=canvas):
+                widget = event.widget
+                # Asegurarnos de que el widget se mueva si está oculto
+                ensure_visible_h(c, widget)
+
+            for w in widgets:
+                # Asegurarnos de que todos los tipos de widgets adecuados reciban el enfoque
+                if isinstance(w, (tk.Entry, ttk.Entry, ttk.Combobox, tk.Text)):
+                    w.bind("<FocusIn>", on_focus)  # Cuando el widget recibe el foco
+                    w.bind("<Enter>", on_focus)    # Cuando el cursor entra en el widget
+
+
+        #-----------------------------------
         form_container_A = tk.Frame(outer_frame, bg=FORM_BG, bd=1, relief="solid")
-        form_container_A.place(x=10, y=140, width=1135, height=80)
+        form_container_A.place(x=100, y=125, width=1045, height=80)
 
         form_canvas_A = tk.Canvas(form_container_A, bg=FORM_BG, highlightthickness=0)
         form_canvas_A.pack(side="top", fill="both", expand=True)
 
         h_scrollbar_A = tk.Scrollbar(form_container_A, orient="horizontal", command=form_canvas_A.xview)
-        h_scrollbar_A.place(x=0, y=60, width=1133)
+        h_scrollbar_A.place(x=0, y=60, width=1042)
 
         form_canvas_A.configure(xscrollcommand=h_scrollbar_A.set)
 
@@ -545,18 +717,19 @@ class TrackingScreen(tk.Frame):
             if "save_whale" in handlers:
                 handlers["save_whale"]("A", data)      
 
-        save_button_whale_a = tk.Button(outer_frame, text="Save Whale A", font=("Arial", 12), bg="#2563EB", fg="white", command=on_save_whale_a)
-        save_button_whale_a.place(x=1024, y=115, width=105, height=20)
+        save_button_whale_a = tk.Button(outer_frame, text="Save Whale A", font=("Arial", 10), bg="#2563EB", fg="white", command=on_save_whale_a)
+        save_button_whale_a.place(x=1024, y=105, width=105, height=15)
+        bind_autoscroll_to_widgets(form_canvas_A, whale_row_A)
 
         # ---------- FORMULARIO B ----------
         form_container_B = tk.Frame(outer_frame, bg=FORM_BG, bd=1, relief="solid")
-        form_container_B.place(x=10, y=260, width=1135, height=80)
+        form_container_B.place(x=100, y=230, width=1045, height=80)
 
         form_canvas_B = tk.Canvas(form_container_B, bg=FORM_BG, highlightthickness=0)
         form_canvas_B.pack(side="top", fill="both", expand=True)
 
         h_scrollbar_B = tk.Scrollbar(form_container_B, orient="horizontal", command=form_canvas_B.xview)
-        h_scrollbar_B.place(x=0, y=60, width=1133)
+        h_scrollbar_B.place(x=0, y=60, width=1042)
 
         form_canvas_B.configure(xscrollcommand=h_scrollbar_B.set)
 
@@ -575,36 +748,120 @@ class TrackingScreen(tk.Frame):
             if "save_whale" in handlers:
                 handlers["save_whale"]("B", data)
 
-        save_button_whale_b = tk.Button(outer_frame, text="Save Whale B", font=("Arial", 12), bg="#2563EB", fg="white", command=on_save_whale_b)
-        save_button_whale_b.place(x=1024, y=235, width=105, height=20)
+        save_button_whale_b = tk.Button(outer_frame, text="Save Whale B", font=("Arial", 10), bg="#2563EB", fg="white", command=on_save_whale_b)
+        save_button_whale_b.place(x=1024, y=208, width=105, height=15)
+        bind_autoscroll_to_widgets(form_canvas_B, whale_row_B)
 
+        #----------------------------- FORMULARIO C -------------
+        form_container_C = tk.Frame(outer_frame, bg=FORM_BG, bd=1, relief="solid")
+        form_container_C.place(x=100, y=335, width=1045, height=80)
+
+        form_canvas_C = tk.Canvas(form_container_C, bg=FORM_BG, highlightthickness=0)
+        form_canvas_C.pack(side="top", fill="both", expand=True)
+
+        h_scrollbar_C = tk.Scrollbar(form_container_C, orient="horizontal", command=form_canvas_C.xview)
+        h_scrollbar_C.place(x=0, y=60, width=1042)
+
+        form_canvas_C.configure(xscrollcommand=h_scrollbar_C.set)
+
+        form_frame_C = tk.Frame(form_canvas_C, bg=FORM_BG)
+        form_canvas_C.create_window((0, 0), window=form_frame_C, anchor="nw")
+
+        def on_form_C_configure(event):
+            form_canvas_C.configure(scrollregion=form_canvas_C.bbox("all"))
+
+        form_frame_C.bind("<Configure>", on_form_C_configure)
+
+        whale_row_C = create_whale_form(form_frame_C, "C", 0)
+
+        def on_save_whale_c():
+            # whale_row_C es la lista de widgets/StringVar que devolvió create_whale_form
+            data = get_form_data(whale_row_C, columns)
+            # llamamos al handler externo
+            if "save_whale" in handlers:
+                handlers["save_whale"]("C", data)      
+
+        save_button_whale_c = tk.Button(outer_frame, text="Save Whale C", font=("Arial", 10), bg="#2563EB", fg="white", command=on_save_whale_c)
+        save_button_whale_c.place(x=1024, y=313, width=110, height=15)
+        bind_autoscroll_to_widgets(form_canvas_C, whale_row_C)
         ###---------------------------------------SECCIÓN 3 - ÚLTIMOS REGISTROS-----------------------------------###
         #---------------------------------- FUNCIONES AUXILIARES ----------------------------------#
+        # def clear_form(entries):
+        #     """
+        #     Limpia todos los campos del formulario, excepto el ID (pos 0).
+        #     entries = lista que devuelve create_whale_form
+        #     """
+        #     for i, widget in enumerate(entries):
+        #         if i == 0:  # ID → no se borra
+        #             continue
+
+        #         # Combobox → widget es un StringVar
+        #         if isinstance(widget, tk.StringVar):
+        #             widget.set(widget.get())  # lo dejamos en su primer valor, si quieres lo vaciamos luego
+        #         else:
+        #             widget.delete(0, "end")  # Entry normal
+
         def clear_form(entries):
             """
             Limpia todos los campos del formulario, excepto el ID (pos 0).
             entries = lista que devuelve create_whale_form
             """
+            # Guardamos los valores predeterminados de los campos
+            default_values = {}
             for i, widget in enumerate(entries):
                 if i == 0:  # ID → no se borra
                     continue
 
-                # Combobox → widget es un StringVar
+                if isinstance(widget, ttk.Combobox):
+                    # Guardamos el valor por defecto de los Combobox
+                    default_values[i] = widget.get()
+
+                elif isinstance(widget, tk.StringVar):
+                    # Para los StringVars, guardamos su valor actual
+                    default_values[i] = widget.get()
+
+                elif isinstance(widget, ttk.Entry):
+                    # Para los Entry, si tienen valores predeterminados, los guardamos
+                    if widget.get() == "0":  # Para casos como "# Skin Sample", "# Feces", "# Boats", etc.
+                        default_values[i] = "0"
+
+            # Limpiar los campos del formulario
+            for i, widget in enumerate(entries):
+                if i == 0:  # ID → no se borra
+                    continue
+
                 if isinstance(widget, tk.StringVar):
-                    widget.set(widget.get())  # lo dejamos en su primer valor, si quieres lo vaciamos luego
-                else:
-                    widget.delete(0, "end")  # Entry normal
+                    # Para los StringVars, los restablecemos al valor original
+                    widget.set(default_values.get(i, ""))  # Restaurar el valor predeterminado
+
+                elif isinstance(widget, ttk.Combobox):
+                    # Para los Combobox, restauramos el valor predeterminado
+                    widget.set(default_values.get(i, widget.get()))  # Restaurar el valor predeterminado o el actual
+
+                elif isinstance(widget, ttk.Entry):
+                    # Restauramos el valor predeterminado (si es "0" o cualquier otro valor inicial)
+                    if i in default_values:
+                        widget.delete(0, "end")
+                        widget.insert(0, default_values[i])
+                    else:
+                        widget.delete(0, "end")  # Limpiar el Entry normalmente
+
+
 
         def clear_form_A():
             clear_form(whale_row_A)
 
         def clear_form_B():
             clear_form(whale_row_B)
+        
+        def clear_form_C():
+            clear_form(whale_row_C)
 
         # Hacemos accesibles las funciones de limpieza desde main.py
         handlers["clear_forms"] = {
             "A": clear_form_A,
             "B": clear_form_B,
+            "C": clear_form_C,
         }
 
         #---------------------------------- GUI DE LA SECCIÓN 3 ----------------------------------#
@@ -613,15 +870,15 @@ class TrackingScreen(tk.Frame):
         last_records_label = tk.Label(
             outer_frame,
             text="Last records",
-            font=("Arial", 12, "bold"),
+            font=("Arial", 10, "bold"),
             bg="white",
             fg="#555555"
         )
-        last_records_label.place(x=10, y=350)
+        last_records_label.place(x=10, y=420)
 
         # Marco que contiene la tabla
         records_frame = tk.Frame(outer_frame, bg="white", bd=1, relief="solid")
-        records_frame.place(x=10, y=380, width=1135, height=180)
+        records_frame.place(x=10, y=440, width=1135, height=140)
 
         # Treeview inside the table_frame
         tree = ttk.Treeview(
@@ -633,8 +890,8 @@ class TrackingScreen(tk.Frame):
 
         # Función que pide los últimos registros a main.py y llena la tabla
         item_to_dbid = {}  
-        def load_last_6_records():
-            """Carga los últimos 6 registros desde la BD usando el handler."""
+        def load_last_5_records():
+            """Carga los últimos 5 registros desde la BD usando el handler."""
             # limpiar tabla
             for item in tree.get_children():
                 tree.delete(item)
@@ -670,11 +927,11 @@ class TrackingScreen(tk.Frame):
         tree.configure(xscrollcommand=h_scroll.set)
 
         # Ubicar ambos
-        tree.place(x=0, y=0, width=1133, height=160)
-        h_scroll.place(x=0, y=160, width=1133)
+        tree.place(x=0, y=0, width=1133, height=125)
+        h_scroll.place(x=0, y=120, width=1133)
 
         # Mostrar registros iniciales
-        load_last_6_records()
+        load_last_5_records()
 
         # Mapeo columna -> nombre 
         col_to_field = {i: col for i, col in enumerate(columns)}
@@ -751,7 +1008,7 @@ class TrackingScreen(tk.Frame):
 
         # Función que main.py puede llamar después de guardar
         def refresh_last_records():
-            load_last_6_records()
+            load_last_5_records()
 
         # Dejamos accesible a main.py
         handlers["refresh_last_records"] = refresh_last_records
@@ -793,7 +1050,7 @@ class TrackingScreen(tk.Frame):
         try:
             with open(self.general_route_file, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
-                writer.writerow(["timestamp", "latitude_longitude"])
+                writer.writerow(["fecha", "hora", "latitud", "longitud"])  # Nuevo encabezado
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo crear el archivo:\n{e}")
             self.general_route_file = None
@@ -823,13 +1080,17 @@ class TrackingScreen(tk.Frame):
             pos = "GPS_ERROR"
 
         # Timestamp actual
-        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Formato: "YYYY-MM-DD HH:MM:SS"
+        date, time = ts.split(" ")  # Dividir la fecha y la hora
+
+        # Separar latitud y longitud (asumimos que `pos` es "latitud,longitud")
+        lat, lon = pos.split(",") if pos != "GPS_ERROR" else ("0.0", "0.0")
 
         # Guardar en el CSV
         try:
             with open(self.general_route_file, "a", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
-                writer.writerow([ts, pos])
+                writer.writerow([date, time, lat, lon])  # Guardar en columnas separadas
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo escribir en el archivo de tracking:\n{e}")
             # si falla, mejor detener el tracking
@@ -866,9 +1127,6 @@ class TrackingScreen(tk.Frame):
                 f"Se guardó el tracking general en:\n{self.general_route_file}"
             )
 
-        # Opcional: podrías resetear self.general_route_file si quieres
-        # self.general_route_file = None
-
 class LogsScreen(tk.Frame):
     def __init__(self, parent, app, handlers, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
@@ -902,7 +1160,8 @@ class LogsScreen(tk.Frame):
 
         tk.Label(
             filter_frame,
-            text="From (YYYY-MM-DD):",
+            # text="From (YYYY-MM-DD):",
+            text="From (DD-MM-YYYY):",
             bg=BG,
             fg=TEXT,
             font=("Arial", 10)
@@ -913,7 +1172,7 @@ class LogsScreen(tk.Frame):
 
         tk.Label(
             filter_frame,
-            text="To (YYYY-MM-DD):",
+            text="To (DD-MM-YYYY):",
             bg=BG,
             fg=TEXT,
             font=("Arial", 10)
@@ -1008,11 +1267,11 @@ class LogsScreen(tk.Frame):
         table_frame.pack(pady=30, padx=40, fill="both", expand=True)
 
         self.columns = [
-            "Date", "ID", "Init Pos", "Final Pos", "Time",
+            "Date", "ID", "M-C", "Init Pos","Init Time", "Final Pos", "Final Time", "Surface Time",
             "# Sightings", "Behavior", "# Blows", "First Blow",
-            "# Whales", "Individual (letter)", "Initial Distance",
+            "# Whales", "Individual (letter)", "Initial Distance", "Angle",
             "# Photos", "Fluke", "Shallow dive", "# Skin Sample",
-            "Feces in Trail", "# Boats", "Boat Speed",
+            "Feces", "# Feces","# Boats", "Boat Speed",
             "WW-Whale Distance", "Engine On",
             "# Visibility", "Hydrophone", "Observations"
         ]
@@ -1073,22 +1332,37 @@ class LogsScreen(tk.Frame):
         if end_str and not start_str:
             start_str = end_str
 
-        # validar formato YYYY-MM-DD
+        # validar formato DD-MM-YYYY
         for label, value in (("From", start_str), ("To", end_str)):
             try:
-                datetime.strptime(value, "%Y-%m-%d")
+                datetime.strptime(value, "%d-%m-%Y")
             except ValueError:
                 messagebox.showerror(
                     "Formato inválido",
-                    f"El campo '{label}' debe tener formato YYYY-MM-DD."
+                    f"El campo '{label}' debe tener formato DD-MM-YYYY."
                 )
                 return
+
+        # Convertir las fechas a formato YYYY-MM-DD para trabajar internamente
+        try:
+            start_date = datetime.strptime(start_str, "%d-%m-%Y").date()  # Convertir a YYYY-MM-DD
+            end_date = datetime.strptime(end_str, "%d-%m-%Y").date()  # Convertir a YYYY-MM-DD
+        except ValueError:
+            messagebox.showerror(
+                "Error de fecha",
+                "Hubo un error al convertir las fechas. Asegúrate de que el formato sea DD-MM-YYYY."
+            )
+            return
+
+        # Convertir las fechas a formato string en YYYY-MM-DD para usarlas en la consulta
+        start_date_str = start_date.strftime("%Y-%m-%d")
+        end_date_str = end_date.strftime("%Y-%m-%d")
 
         if "fetch_records_by_date" not in self.handlers:
             messagebox.showerror("Error", "No hay handler para filtrar por fecha.")
             return
 
-        records = self.handlers["fetch_records_by_date"](start_str, end_str)
+        records = self.handlers["fetch_records_by_date"](start_date_str, end_date_str)
         self.current_records = records  # guardamos para exportar
 
         # limpiar tabla
@@ -1192,11 +1466,12 @@ class LogsScreen(tk.Frame):
         # separar registros por ID (A y B)
         records_A = [rec for rec in self.current_records if rec.get("ID") == "A"]
         records_B = [rec for rec in self.current_records if rec.get("ID") == "B"]
+        records_C = [rec for rec in self.current_records if rec.get("ID") == "C"]
 
-        if not records_A and not records_B:
+        if not records_A and not records_B and not records_C:
             messagebox.showinfo(
                 "Sin datos",
-                "No hay registros con ID 'A' ni 'B' en el filtro actual."
+                "No hay registros con ID 'A', 'B' ni 'C' en el filtro actual."
             )
             return
 
@@ -1252,9 +1527,65 @@ class LogsScreen(tk.Frame):
         def write_csv(path, records):
             with open(path, mode="w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
-                writer.writerow(self.columns)  # encabezados
+
+                # Escribir los encabezados
+                # Nuevos encabezados con columnas separadas para fecha, hora, latitud y longitud
+                writer.writerow([
+                    "fecha", "hora", "ID", "M-C", "Init Latitude","Init Longitude", "Init Time", "Final Latitude", "Final Longitude","Final Time",
+                    "Surface Time", "# Sightings", "Behavior", "# Blows", "First Blow", "# Whales",
+                    "Individual (letter)", "Initial Distance", "Angle", "# Photos", "Fluke", "Shallow dive",
+                    "# Skin Sample", "Feces", "# Feces", "# Boats", "Boat Speed", "WW-Whale Distance", "Engine On",
+                    "# Visibility", "Hydrophone", "Observations", "Latitud", "Longitud"
+                ])
+
                 for rec in records:
-                    row = [rec.get(col, "") for col in self.columns]
+                    # Separar los valores de fecha y hora
+                    timestamp = rec.get("Date", "")
+                    date, time = timestamp.split(" ") if timestamp else ("", "")
+                    
+                    # Separar latitud y longitud
+                    init_pos = rec.get("Init Pos", "")
+                    lat_init, lon_init = init_pos.split(",") if init_pos else ("", "")
+
+                    # Separar latitud y longitud de Final Pos (latitud, longitud)
+                    final_pos = rec.get("Final Pos", "")
+                    lat_final, lon_final = final_pos.split(",") if final_pos else ("", "")
+
+                    # Crear una fila con los nuevos valores separados
+                    row = [
+                        date,  # fecha
+                        time,  # hora
+                        rec.get("ID", ""),
+                        rec.get("M-C", ""),
+                        lat_init,  # latitud inicial
+                        lon_init,  # longitud inicial
+                        rec.get("Init Time", ""),
+                        lat_final, # latitud final
+                        lon_final, # longitud final
+                        rec.get("Final Time", ""),
+                        rec.get("Surface Time", ""),
+                        rec.get("# Sightings", ""),
+                        rec.get("Behavior", ""),
+                        rec.get("# Blows", ""),
+                        rec.get("First Blow", ""),
+                        rec.get("# Whales", ""),
+                        rec.get("Individual (letter)", ""),
+                        rec.get("Initial Distance", ""),
+                        rec.get("Angle", ""),
+                        rec.get("# Photos", ""),
+                        rec.get("Fluke", ""),
+                        rec.get("Shallow dive", ""),
+                        rec.get("# Skin Sample", ""),
+                        rec.get("Feces", ""),
+                        rec.get("# Feces", ""),
+                        rec.get("# Boats", ""),
+                        rec.get("Boat Speed", ""),
+                        rec.get("WW-Whale Distance", ""),
+                        rec.get("Engine On", ""),
+                        rec.get("# Visibility", ""),
+                        rec.get("Hydrophone", ""),
+                        rec.get("Observations", ""),
+                    ]
                     writer.writerow(row)
 
         # guardar A
@@ -1276,6 +1607,15 @@ class LogsScreen(tk.Frame):
                 write_csv(path_B, records_B)
             except Exception as e:
                 errors.append(f"B: {e}")
+        # Guardar C
+        path_C = None
+        if records_C:
+            filename_C = f"whale_C_logs{date_suffix}.csv"
+            path_C = os.path.join(folder, filename_C)
+            try:
+                write_csv(path_C, records_C)
+            except Exception as e:
+                errors.append(f"C: {e}")
 
         if errors:
             messagebox.showerror(
@@ -1288,9 +1628,10 @@ class LogsScreen(tk.Frame):
                 msg += f"  - {path_A}\n"
             if path_B:
                 msg += f"  - {path_B}\n"
+            if path_C:
+                msg += f"  - {path_C}\n"  # Añadimos la ruta del archivo C
             messagebox.showinfo("Exportación exitosa", msg)
 
-    
     # ---------- Cargar algo al entrar, esto es para el log ----------
     def load_logs(self):
         """Carga algunos registros iniciales (por ejemplo, los últimos 20)."""
@@ -1317,12 +1658,6 @@ class LogsScreen(tk.Frame):
         if "backup_db" not in self.handlers:
             messagebox.showerror("Error", "No hay handler para hacer backup de la base de datos.")
             return
-
-        # folder = filedialog.askdirectory(
-        #     title="Selecciona la carpeta donde guardar el backup de la base de datos"
-        # )
-        # if not folder:
-        #     return  # usuario canceló
 
         # Obtener carpeta del ejecutable o del script
         try:

@@ -13,9 +13,8 @@ NUMERIC_INT_FIELDS = {
     "# Blows",
     "# Whales",
     "# Photos",
-    "# Skin Sample",
     "# Boats",
-    "# Visibility",
+    "Angle",
 }
 
 # Campos que deben ser decimales (float)
@@ -28,6 +27,7 @@ NUMERIC_FLOAT_FIELDS = {
 # Campo opcional (puede estar vacío)
 OPTIONAL_FIELDS = {
     "Observations",
+    "# Visibility",
 }
 
 LETTER_FIELDS = {
@@ -88,7 +88,7 @@ def validate_record(data_gui):
 
 # ------------- HANDLERS LÓGICOS -----------------#
 
-def fetch_last_records_handler(limit=6):
+def fetch_last_records_handler(limit=5):
     """
     Devuelve lista de registros con claves de GUI (ID, Init Pos, etc.)
     """
@@ -96,20 +96,26 @@ def fetch_last_records_handler(limit=6):
 
 def save_whale_handler(whale_id, data_gui):
     """
-    whale_id: 'A' o 'B'
+    whale_id: 'A', 'B' o 'C'
     data_gui: dict con claves de la GUI (las de `columns`)
     """
 
-    ok, cleaned_data, errors = validate_record(data_gui)
+    # Si el whale_id es 'C', no validar los datos
+    if whale_id != "C":
+        ok, cleaned_data, errors = validate_record(data_gui)
 
-    if not ok:
-        # Construimos un solo mensaje con todas las fallas
-        msg = "No se puede guardar el registro por los siguientes motivos:\n\n"
-        msg += "\n".join(f"- {e}" for e in errors)
-        messagebox.showerror("Error de validación", msg)
-        return  # No guardamos en la BD
+        if not ok:
+            # Construimos un solo mensaje con todas las fallas
+            msg = "No se puede guardar el registro por los siguientes motivos:\n\n"
+            msg += "\n".join(f"- {e}" for e in errors)
+            messagebox.showerror("Error de validación", msg)
+            return  # No guardamos en la BD
+    else:
+        # Si whale_id es 'C', no validamos, solo limpiamos los datos
+        cleaned_data = data_gui
+        errors = []
 
-    # 1. Si todo esta bien convertir claves GUI -> columnas SQL
+    # 1. Si todo está bien (o si es 'C', no se validó), convertir claves GUI -> columnas SQL
     db_fields = []
     db_values = []
     for gui_key, value in cleaned_data.items():
@@ -118,14 +124,14 @@ def save_whale_handler(whale_id, data_gui):
         db_fields.append(database.GUI_TO_DB[gui_key])
         db_values.append(value)
 
-    # 2. asegurarnos de incluir id_tag (A/B)
+    # 2. Asegurarnos de incluir id_tag (A/B/C)
     # sobrescribimos por si acaso
     if "id_tag" not in db_fields:
         db_fields.insert(0, "id_tag")
         db_values.insert(0, whale_id)
 
     placeholders = ",".join(["?"] * len(db_fields))
-    fields_sql   = ",".join(db_fields)
+    fields_sql = ",".join(db_fields)
 
     with database.get_connection() as conn:
         cur = conn.cursor()
@@ -141,16 +147,19 @@ def save_whale_handler(whale_id, data_gui):
     if "status_available" in handlers:
         handlers["status_available"](whale_id)
 
-    # limpiar formulario
+    # Limpiar formulario
     if "clear_forms" in handlers:
         if whale_id == "A":
             handlers["clear_forms"]["A"]()
-        else:
+        elif whale_id == "B":
             handlers["clear_forms"]["B"]()
+        else:
+            handlers["clear_forms"]["C"]()
 
     # REFRESCAR TABLA DE ÚLTIMOS REGISTROS
     if "refresh_last_records" in handlers:
         handlers["refresh_last_records"]()
+
 
 def update_record_field_handler(db_id, gui_field_name, new_value):
     database.update_record_field(db_id, gui_field_name, new_value)
