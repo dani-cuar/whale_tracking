@@ -2,11 +2,23 @@ import sqlite3
 from pathlib import Path
 import shutil
 from datetime import datetime
+import os
+import sys
 
-# Ruta de la base de datos (puedes ajustarla si tienes carpeta data/)
-DB_PATH = Path(__file__).resolve().parent.parent / "data" / "database.db"
-DB_PATH.parent.mkdir(exist_ok=True)  # crea carpeta data/ si no existe
+def _get_db_path() -> Path:
+    # Si es ejecutable (PyInstaller)
+    if getattr(sys, "frozen", False):
+        app_dir = Path(os.environ["LOCALAPPDATA"]) / "WhaleTrackingSystem"
+        app_dir.mkdir(parents=True, exist_ok=True)
+        return app_dir / "database.db"
 
+    # Si es desarrollo (python normal): usar ./data/database.db en la raíz del proyecto
+    project_root = Path(__file__).resolve().parent.parent  # src/.. = raíz
+    data_dir = project_root / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir / "database.db"
+
+DB_PATH = _get_db_path()
 # Mapeo GUI -> columna SQL
 GUI_TO_DB = {
     "Date": "created_at",
@@ -190,6 +202,7 @@ def init_db():
             )
             """
         )
+        
         conn.commit()
 
 def debug_print_all_records():
