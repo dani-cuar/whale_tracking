@@ -12,7 +12,7 @@ NUMERIC_INT_FIELDS = {
     "# Sightings",
     "# Blows",
     "# Whales",
-    "# Photos",
+    # "# Photos",
     "# Boats",
     "Angle",
 }
@@ -159,6 +159,8 @@ def save_whale_handler(whale_id, data_gui):
     # REFRESCAR TABLA DE ÚLTIMOS REGISTROS
     if "refresh_last_records" in handlers:
         handlers["refresh_last_records"]()
+
+    return True
 
 
 def update_record_field_handler(db_id, gui_field_name, new_value):

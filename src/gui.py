@@ -246,6 +246,8 @@ class TrackingScreen(tk.Frame):
             lbl = status_labels[whale_id]
             lbl.config(text="Tracking", bg="orange", fg="black")
 
+        start_times = {}        # whale_id -> t0 (float) o None
+        stop_snapshot = {}      # whale_id -> {"elapsed": float, "final_time": str, "final_pos": str} o None
         def on_start_whale(whale_id):
             """
             Start: guarda hora de inicio y escribe Init Pos automáticamente.
@@ -255,10 +257,11 @@ class TrackingScreen(tk.Frame):
 
             # 1) guardar la hora actual
             start_times[whale_id] = time.time()
+            stop_snapshot[whale_id] = None   # nuevo start invalida cualquier stop anterior
 
             # 2) obtener posición actual (aquí decides de dónde sale)
             #    Por ahora:
-            pos = ""
+            # pos = ""
             if "get_current_position" in handlers:
                 # si tienes un handler en main que devuelve la posición
                 pos = handlers["get_current_position"](whale_id)
@@ -286,17 +289,16 @@ class TrackingScreen(tk.Frame):
             # (opcional) limpiar Final Pos y Time
             widget_final = row[IDX_FINAL_POS]
             widget_time  = row[IDX_TIME]
+            widget_final_time = row[IDX_FINAL_TIME]
 
-            if isinstance(widget_final, tk.StringVar):
-                widget_final.set("")
-            else:
-                widget_final.delete(0, "end")
-
-            if isinstance(widget_time, tk.StringVar):
-                widget_time.set("")
-            else:
-                widget_time.delete(0, "end")
-
+            for w, val in [(widget_final, ""), (widget_time, ""), (widget_final_time, "")]:
+                if isinstance(w, tk.StringVar):
+                    w.set(val)
+                else:
+                    w.delete(0, "end")
+            
+            stop_gone_counter(whale_id)
+        
         def on_stop_whale(whale_id):
             """
             Stop: calcula tiempo desde Start, y escribe Final Pos y Time.
@@ -305,7 +307,6 @@ class TrackingScreen(tk.Frame):
 
             t0 = start_times.get(whale_id)
             if t0 is None:
-                # Nunca se presionó Start para esta ballena
                 messagebox.showwarning(
                     "Sin inicio",
                     f"Primero presiona 'Start' para la ballena {whale_id}."
@@ -313,14 +314,18 @@ class TrackingScreen(tk.Frame):
                 return
 
             elapsed = time.time() - t0
-            start_times[whale_id] = None  # reseteamos
 
             # 1) Final Pos
-            pos = ""
+            # pos = ""
             if "get_current_position" in handlers:
                 pos = handlers["get_current_position"](whale_id)
             else:
                 pos = "AUTO_POS_END"
+
+            final_time = time.strftime("%H:%M:%S", time.localtime())
+
+            # >>> guardar el ÚLTIMO STOP (freeze)
+            stop_snapshot[whale_id] = {"elapsed": elapsed, "final_time": final_time, "final_pos": pos}
 
             widget_final = row[IDX_FINAL_POS]
             if isinstance(widget_final, tk.StringVar):
@@ -347,6 +352,9 @@ class TrackingScreen(tk.Frame):
             else:
                 widget_final_time.delete(0, "end")
                 widget_final_time.insert(0, final_time)
+
+            start_gone_counter(whale_id)
+
         # ------------- lógica para llevar el estado del tracking ---------#
         def set_status_available(whale_id):
             lbl = status_labels[whale_id]
@@ -687,8 +695,61 @@ class TrackingScreen(tk.Frame):
                     w.bind("<FocusIn>", on_focus)  # Cuando el widget recibe el foco
                     w.bind("<Enter>", on_focus)    # Cuando el cursor entra en el widget
 
+        #### Contador de cuanto tiempo hace que una ballena se fue #######
+        whale_ids = ["A", "B", "C"]
+
+        gone_running = {wid: False for wid in whale_ids}
+        gone_start   = {wid: None  for wid in whale_ids}
+        gone_afterid = {wid: None  for wid in whale_ids}
+        gone_var     = {wid: tk.StringVar(value="00:00") for wid in whale_ids}  # label por ballena
+
+        def fmt_mmss(seconds: float) -> str:
+            s = int(seconds)
+            mm = s // 60
+            ss = s % 60
+            return f"{mm:02d}:{ss:02d}"
+
+        def _update_gone_counter(whale_id: str):
+            if not gone_running[whale_id] or gone_start[whale_id] is None:
+                return
+
+            elapsed = time.time() - gone_start[whale_id]
+            gone_var[whale_id].set(fmt_mmss(elapsed))
+
+            gone_afterid[whale_id] = outer_frame.after(200, lambda: _update_gone_counter(whale_id))
+
+        def start_gone_counter(whale_id: str):
+            # STOP: reinicia a 0 y empieza a contar
+            if gone_afterid[whale_id] is not None:
+                try:
+                    outer_frame.after_cancel(gone_afterid[whale_id])
+                except Exception:
+                    pass
+                gone_afterid[whale_id] = None
+
+            gone_var[whale_id].set("00:00")
+            gone_start[whale_id] = time.time()
+            gone_running[whale_id] = True
+            _update_gone_counter(whale_id)
+
+        def stop_gone_counter(whale_id: str):
+            # START: pausa el contador
+            gone_running[whale_id] = False
+            if gone_afterid[whale_id] is not None:
+                try:
+                    outer_frame.after_cancel(gone_afterid[whale_id])
+                except Exception:
+                    pass
+                gone_afterid[whale_id] = None
 
         #-----------------------------------
+        gone_panel = tk.Frame(outer_frame, bg=FORM_BG)
+        gone_panel.place(x=10, y=125, width=80, height=280)  # ajusta height según tus 3 filas
+
+        # A (misma y que el contenedor A)
+        tk.Label(gone_panel, text="A:", bg=FORM_BG).place(x=0, y=25)
+        tk.Label(gone_panel, textvariable=gone_var["A"], bg=FORM_BG, font=("Arial", 12, "bold")).place(x=20, y=23)
+
         form_container_A = tk.Frame(outer_frame, bg=FORM_BG, bd=1, relief="solid")
         form_container_A.place(x=100, y=125, width=1045, height=80)
 
@@ -711,17 +772,74 @@ class TrackingScreen(tk.Frame):
         whale_row_A = create_whale_form(form_frame_A, "A", 0)
 
         def on_save_whale_a():
-            # whale_row_A es la lista de widgets/StringVar que devolvió create_whale_form
+            whale_id = "A"
+
+            # 0) debe existir start
+            t0 = start_times.get(whale_id, None)
+            if t0 is None:
+                messagebox.showwarning("Sin inicio", f"Primero presiona 'Start' para la ballena {whale_id}.")
+                return
+
+            # 1) si NUNCA dieron stop, crear stop "por defecto" UNA sola vez (freeze)
+            if stop_snapshot.get(whale_id) is None:
+                elapsed = time.time() - t0
+
+                if "get_current_position" in handlers:
+                    pos = handlers["get_current_position"](whale_id)
+                else:
+                    pos = "AUTO_POS_END"
+
+                final_time = time.strftime("%H:%M:%S", time.localtime())
+                stop_snapshot[whale_id] = {"elapsed": elapsed, "final_time": final_time, "final_pos": pos}
+
+                # y sí: llenamos los campos (para que lo que guardes sea coherente con GUI)
+                row = get_whale_row(whale_id)
+
+                widget_final = row[IDX_FINAL_POS]
+                if isinstance(widget_final, tk.StringVar):
+                    widget_final.set(pos)
+                else:
+                    widget_final.delete(0, "end")
+                    widget_final.insert(0, pos)
+
+                time_str = format_elapsed(elapsed)
+                widget_time = row[IDX_TIME]
+                if isinstance(widget_time, tk.StringVar):
+                    widget_time.set(time_str)
+                else:
+                    widget_time.delete(0, "end")
+                    widget_time.insert(0, time_str)
+
+                widget_final_time = row[IDX_FINAL_TIME]
+                if isinstance(widget_final_time, tk.StringVar):
+                    widget_final_time.set(final_time)
+                else:
+                    widget_final_time.delete(0, "end")
+                    widget_final_time.insert(0, final_time)
+
+                # >>> CLAVE: si Save “define” que se fue, arrancar contador de “se fue hace…”
+                start_gone_counter(whale_id)
+            # 2) ahora sí, guardar (sin recalcular tiempos)
             data = get_form_data(whale_row_A, columns)
-            # llamamos al handler externo
+
+            ok = True
             if "save_whale" in handlers:
-                handlers["save_whale"]("A", data)      
+                ok = handlers["save_whale"](whale_id, data)  # debe devolver True/False
+
+            # 3) si guardó bien, apagar timer definitivo
+            if ok:
+                start_times[whale_id] = None
+                stop_snapshot[whale_id] = None
 
         save_button_whale_a = tk.Button(outer_frame, text="Save Whale A", font=("Arial", 10), bg="#2563EB", fg="white", command=on_save_whale_a)
         save_button_whale_a.place(x=1024, y=105, width=105, height=15)
         bind_autoscroll_to_widgets(form_canvas_A, whale_row_A)
 
         # ---------- FORMULARIO B ----------
+        # B (80px abajo si cada form_container mide 80 de alto)
+        tk.Label(gone_panel, text="B:", bg=FORM_BG).place(x=0, y=130)
+        tk.Label(gone_panel, textvariable=gone_var["B"], bg=FORM_BG, font=("Arial", 12, "bold")).place(x=20, y=128)
+
         form_container_B = tk.Frame(outer_frame, bg=FORM_BG, bd=1, relief="solid")
         form_container_B.place(x=100, y=230, width=1045, height=80)
 
@@ -744,15 +862,74 @@ class TrackingScreen(tk.Frame):
         whale_row_B = create_whale_form(form_frame_B, "B", 0)
 
         def on_save_whale_b():
+            whale_id = "B"
+
+            # 0) debe existir start
+            t0 = start_times.get(whale_id, None)
+            if t0 is None:
+                messagebox.showwarning("Sin inicio", f"Primero presiona 'Start' para la ballena {whale_id}.")
+                return
+
+            # 1) si NUNCA dieron stop, crear stop "por defecto" UNA sola vez (freeze)
+            if stop_snapshot.get(whale_id) is None:
+                elapsed = time.time() - t0
+
+                if "get_current_position" in handlers:
+                    pos = handlers["get_current_position"](whale_id)
+                else:
+                    pos = "AUTO_POS_END"
+
+                final_time = time.strftime("%H:%M:%S", time.localtime())
+                stop_snapshot[whale_id] = {"elapsed": elapsed, "final_time": final_time, "final_pos": pos}
+
+                # y sí: llenamos los campos (para que lo que guardes sea coherente con GUI)
+                row = get_whale_row(whale_id)
+
+                widget_final = row[IDX_FINAL_POS]
+                if isinstance(widget_final, tk.StringVar):
+                    widget_final.set(pos)
+                else:
+                    widget_final.delete(0, "end")
+                    widget_final.insert(0, pos)
+
+                time_str = format_elapsed(elapsed)
+                widget_time = row[IDX_TIME]
+                if isinstance(widget_time, tk.StringVar):
+                    widget_time.set(time_str)
+                else:
+                    widget_time.delete(0, "end")
+                    widget_time.insert(0, time_str)
+
+                widget_final_time = row[IDX_FINAL_TIME]
+                if isinstance(widget_final_time, tk.StringVar):
+                    widget_final_time.set(final_time)
+                else:
+                    widget_final_time.delete(0, "end")
+                    widget_final_time.insert(0, final_time)
+
+                # >>> CLAVE: si Save “define” que se fue, arrancar contador de “se fue hace…”
+                start_gone_counter(whale_id)
+
+            # 2) ahora sí, guardar (sin recalcular tiempos)
             data = get_form_data(whale_row_B, columns)
+
+            ok = True
             if "save_whale" in handlers:
-                handlers["save_whale"]("B", data)
+                ok = handlers["save_whale"](whale_id, data)  # debe devolver True/False
+
+            # 3) si guardó bien, apagar timer definitivo
+            if ok:
+                start_times[whale_id] = None
+                stop_snapshot[whale_id] = None
 
         save_button_whale_b = tk.Button(outer_frame, text="Save Whale B", font=("Arial", 10), bg="#2563EB", fg="white", command=on_save_whale_b)
         save_button_whale_b.place(x=1024, y=208, width=105, height=15)
         bind_autoscroll_to_widgets(form_canvas_B, whale_row_B)
 
         #----------------------------- FORMULARIO C -------------
+        tk.Label(gone_panel, text="C:", bg=FORM_BG).place(x=0, y=235)
+        tk.Label(gone_panel, textvariable=gone_var["C"], bg=FORM_BG, font=("Arial", 12, "bold")).place(x=20, y=233)
+
         form_container_C = tk.Frame(outer_frame, bg=FORM_BG, bd=1, relief="solid")
         form_container_C.place(x=100, y=335, width=1045, height=80)
 
@@ -775,32 +952,71 @@ class TrackingScreen(tk.Frame):
         whale_row_C = create_whale_form(form_frame_C, "C", 0)
 
         def on_save_whale_c():
-            # whale_row_C es la lista de widgets/StringVar que devolvió create_whale_form
+            whale_id = "C"
+
+            # 0) debe existir start
+            t0 = start_times.get(whale_id, None)
+            if t0 is None:
+                messagebox.showwarning("Sin inicio", f"Primero presiona 'Start' para la ballena {whale_id}.")
+                return
+
+            # 1) si NUNCA dieron stop, crear stop "por defecto" UNA sola vez (freeze)
+            if stop_snapshot.get(whale_id) is None:
+                elapsed = time.time() - t0
+
+                if "get_current_position" in handlers:
+                    pos = handlers["get_current_position"](whale_id)
+                else:
+                    pos = "AUTO_POS_END"
+
+                final_time = time.strftime("%H:%M:%S", time.localtime())
+                stop_snapshot[whale_id] = {"elapsed": elapsed, "final_time": final_time, "final_pos": pos}
+
+                # y sí: llenamos los campos (para que lo que guardes sea coherente con GUI)
+                row = get_whale_row(whale_id)
+
+                widget_final = row[IDX_FINAL_POS]
+                if isinstance(widget_final, tk.StringVar):
+                    widget_final.set(pos)
+                else:
+                    widget_final.delete(0, "end")
+                    widget_final.insert(0, pos)
+
+                time_str = format_elapsed(elapsed)
+                widget_time = row[IDX_TIME]
+                if isinstance(widget_time, tk.StringVar):
+                    widget_time.set(time_str)
+                else:
+                    widget_time.delete(0, "end")
+                    widget_time.insert(0, time_str)
+
+                widget_final_time = row[IDX_FINAL_TIME]
+                if isinstance(widget_final_time, tk.StringVar):
+                    widget_final_time.set(final_time)
+                else:
+                    widget_final_time.delete(0, "end")
+                    widget_final_time.insert(0, final_time)
+
+                # >>> CLAVE: si Save “define” que se fue, arrancar contador de “se fue hace…”
+                start_gone_counter(whale_id)
+                
+            # 2) ahora sí, guardar (sin recalcular tiempos)
             data = get_form_data(whale_row_C, columns)
-            # llamamos al handler externo
+
+            ok = True
             if "save_whale" in handlers:
-                handlers["save_whale"]("C", data)      
+                ok = handlers["save_whale"](whale_id, data)  # debe devolver True/False
+
+            # 3) si guardó bien, apagar timer definitivo
+            if ok:
+                start_times[whale_id] = None
+                stop_snapshot[whale_id] = None
 
         save_button_whale_c = tk.Button(outer_frame, text="Save Whale C", font=("Arial", 10), bg="#2563EB", fg="white", command=on_save_whale_c)
         save_button_whale_c.place(x=1024, y=313, width=110, height=15)
         bind_autoscroll_to_widgets(form_canvas_C, whale_row_C)
         ###---------------------------------------SECCIÓN 3 - ÚLTIMOS REGISTROS-----------------------------------###
         #---------------------------------- FUNCIONES AUXILIARES ----------------------------------#
-        # def clear_form(entries):
-        #     """
-        #     Limpia todos los campos del formulario, excepto el ID (pos 0).
-        #     entries = lista que devuelve create_whale_form
-        #     """
-        #     for i, widget in enumerate(entries):
-        #         if i == 0:  # ID → no se borra
-        #             continue
-
-        #         # Combobox → widget es un StringVar
-        #         if isinstance(widget, tk.StringVar):
-        #             widget.set(widget.get())  # lo dejamos en su primer valor, si quieres lo vaciamos luego
-        #         else:
-        #             widget.delete(0, "end")  # Entry normal
-
         def clear_form(entries):
             """
             Limpia todos los campos del formulario, excepto el ID (pos 0).
@@ -1629,7 +1845,7 @@ class LogsScreen(tk.Frame):
             if path_B:
                 msg += f"  - {path_B}\n"
             if path_C:
-                msg += f"  - {path_C}\n"  # Añadimos la ruta del archivo C
+                msg += f"  - {path_C}\n"  
             messagebox.showinfo("Exportación exitosa", msg)
 
     # ---------- Cargar algo al entrar, esto es para el log ----------
