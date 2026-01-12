@@ -203,10 +203,10 @@ class TrackingScreen(tk.Frame):
         # ------  Lógica para rastreo de tiempo por ballena --------------#
         # Labels (columns)
         columns = [
-            "ID", "M-C", "Init Pos", "Init Time", "Final Pos", "Final Time", "Surface Time", "# Sightings",
-            "Behavior", "# Blows", "First Blow",
+            "ID", "# Sightings", "M-C", "Init Pos", "Init Time", "Final Pos", "Final Time", "Surface Time",
+            "Behavior", "# Blows", "Blow Sample", "First Blow",
             "# Whales", "Individual (letter)", "Initial Distance", "Angle",
-            "# Photos", "Fluke", "Shallow dive", "# Skin Sample",
+            "# Photos", "Photo Drone", "Fluke", "Shallow dive", "# Skin Sample",
             "Feces", "# Feces", "# Boats", "Boat Speed",
             "WW-Whale Distance", "Engine On",
             "# Visibility", "Hydrophone", "Observations"
@@ -480,10 +480,10 @@ class TrackingScreen(tk.Frame):
             """Create one row of column titles + input widgets inside `frame`."""
 
             labels = [
-                "ID", "M-C", "Init Pos","Init Time", "Final Pos", "Final Time", "Surface Time", "# Sightings",
-                "Behavior", "# Blows", "First Blow",
+                "ID", "# Sightings", "M-C", "Init Pos","Init Time", "Final Pos", "Final Time", "Surface Time", 
+                "Behavior", "# Blows", "Blow Sample", "First Blow",
                 "# Whales", "Individual (letter)", "Initial Distance", "Angle",
-                "# Photos", "Fluke", "Shallow dive", "# Skin Sample",
+                "# Photos", "Photo Drone", "Fluke", "Shallow dive", "# Skin Sample",
                 "Feces", "# Feces", "# Boats", "Boat Speed",
                 "WW-Whale Distance", "Engine On",
                 "# Visibility", "Hydrophone", "Observations"
@@ -491,7 +491,7 @@ class TrackingScreen(tk.Frame):
             
             options = {
                 "Behavior": [
-                    "t - traveling", "sf - surface feeding",
+                    "t - traveling", "sf - surface feeding", "J - J movement",
                     "hac - half anticyclonic circle", "hc - half cyclonic circle",
                     "r - resting", "br - breaching", "n - nursing",
                     "f or zz - foraging or zig-zag", "st - straight line"
@@ -560,6 +560,38 @@ class TrackingScreen(tk.Frame):
                     # Aseguramos que el valor "0" se muestre inmediatamente, si textvariable falla.
                     entry.insert(0, "0")
                     entry.grid(row=row_index + 1, column=col, padx=6, pady=(0, 5), sticky="we")
+                    entries.append(entry)  # Add the StringVar to the list of entries  
+                elif label == "# Photos":
+                    # For "# Photos", set the default value to 0
+                    photos = tk.StringVar(frame, value="0")  # Default value is 0
+                    entry = ttk.Entry(frame, width=16)
+                    # Aseguramos que el valor "0" se muestre inmediatamente, si textvariable falla.
+                    entry.insert(0, "0")
+                    entry.grid(row=row_index + 1, column=col, padx=6, pady=(0, 5), sticky="we")
+                    entries.append(entry)  # Add the StringVar to the list of entries  
+                elif label == "Angle":
+                    # For "Angle", set the default value to 0
+                    angle = tk.StringVar(frame, value="0")  # Default value is 0
+                    entry = ttk.Entry(frame, width=16)
+                    # Aseguramos que el valor "0" se muestre inmediatamente, si textvariable falla.
+                    entry.insert(0, "0")
+                    entry.grid(row=row_index + 1, column=col, padx=6, pady=(0, 5), sticky="we")
+                    entries.append(entry)  # Add the StringVar to the list of entries  
+                elif label == "Initial Distance":
+                    # For "Initial Distance", set the default value to 0
+                    initial_distance = tk.StringVar(frame, value="0")  # Default value is 0
+                    entry = ttk.Entry(frame, width=16)
+                    # Aseguramos que el valor "0" se muestre inmediatamente, si textvariable falla.
+                    entry.insert(0, "0")
+                    entry.grid(row=row_index + 1, column=col, padx=6, pady=(0, 5), sticky="we")
+                    entries.append(entry)  # Add the StringVar to the list of entries  
+                elif label == "Photo Drone":
+                    # For "Photo Drone", set the default value to 0
+                    photo_drone = tk.StringVar(frame, value="0")  # Default value is 0
+                    entry = ttk.Entry(frame, width=16)
+                    # Aseguramos que el valor "0" se muestre inmediatamente, si textvariable falla.
+                    entry.insert(0, "0")
+                    entry.grid(row=row_index + 1, column=col, padx=6, pady=(0, 5), sticky="we")
                     entries.append(entry)  # Add the StringVar to the list of entries                    
                 elif label == "# Boats":
                     # For "# Boats", set the default value to 0
@@ -576,8 +608,15 @@ class TrackingScreen(tk.Frame):
                     entry.grid(row=row_index + 1, column=col, padx=6, pady=(0, 5), sticky="we")
                     entries.append(entry)  # Add the StringVar to the list of entries
                 elif label == "# Blows":
-                    # For "Boat Speed", set the default value to 0
+                    # For "# Blows", set the default value to 0
                     blows_var = tk.StringVar(frame, value="0")  # Default value is 0
+                    entry = ttk.Entry(frame, width=16)
+                    entry.insert(0, "0")
+                    entry.grid(row=row_index + 1, column=col, padx=6, pady=(0, 5), sticky="we")
+                    entries.append(entry)  # Add the StringVar to the list of entries
+                elif label == "Blow Sample":
+                    # For "Blow Sample", set the default value to 0
+                    blow_sample_var = tk.StringVar(frame, value="0")  # Default value is 0
                     entry = ttk.Entry(frame, width=16)
                     entry.insert(0, "0")
                     entry.grid(row=row_index + 1, column=col, padx=6, pady=(0, 5), sticky="we")
@@ -1019,14 +1058,33 @@ class TrackingScreen(tk.Frame):
         #---------------------------------- FUNCIONES AUXILIARES ----------------------------------#
         def clear_form(entries):
             """
-            Limpia todos los campos del formulario, excepto el ID (pos 0).
+            Limpia todos los campos del formulario, excepto el ID (pos 0) 
+            y restaura defaults (incluyendo los Entry que deben volver a "0").            y restaura defaults (incluyendo los Entry que deben volver a "0").
             entries = lista que devuelve create_whale_form
             """
+
+            # Campos que SIEMPRE deben volver a "0" aunque el usuario los haya cambiado
+            FORCE_ZERO_FIELDS = {
+                "# Skin Sample",
+                "# Feces",
+                "Initial Distance",
+                "Angle",
+                "# Photos",
+                "Photo Drone",
+                "# Boats",
+                "Boat Speed",
+                "# Blows",
+                "Blow Sample",
+                "WW-Whale Distance",
+            }
+
             # Guardamos los valores predeterminados de los campos
             default_values = {}
             for i, widget in enumerate(entries):
                 if i == 0:  # ID → no se borra
                     continue
+                
+                col_name = columns[i]  # <-- usa la lista global "columns"
 
                 if isinstance(widget, ttk.Combobox):
                     # Guardamos el valor por defecto de los Combobox
@@ -1037,9 +1095,12 @@ class TrackingScreen(tk.Frame):
                     default_values[i] = widget.get()
 
                 elif isinstance(widget, ttk.Entry):
-                    # Para los Entry, si tienen valores predeterminados, los guardamos
-                    if widget.get() == "0":  # Para casos como "# Skin Sample", "# Feces", "# Boats", etc.
+                    # Si el campo está en la lista, su default es "0" siempre
+                    if col_name in FORCE_ZERO_FIELDS:
                         default_values[i] = "0"
+                    else:
+                        # si no, default vacío
+                        default_values[i] = ""
 
             # Limpiar los campos del formulario
             for i, widget in enumerate(entries):
@@ -1061,7 +1122,6 @@ class TrackingScreen(tk.Frame):
                         widget.insert(0, default_values[i])
                     else:
                         widget.delete(0, "end")  # Limpiar el Entry normalmente
-
 
 
         def clear_form_A():
@@ -1483,10 +1543,11 @@ class LogsScreen(tk.Frame):
         table_frame.pack(pady=30, padx=40, fill="both", expand=True)
 
         self.columns = [
-            "Date", "ID", "M-C", "Init Pos","Init Time", "Final Pos", "Final Time", "Surface Time",
-            "# Sightings", "Behavior", "# Blows", "First Blow",
+            "Date", "ID", "# Sightings", "M-C", "Init Pos",
+            "Init Time", "Final Pos", "Final Time", "Surface Time",
+            "Behavior", "# Blows", "Blow Sample", "First Blow",
             "# Whales", "Individual (letter)", "Initial Distance", "Angle",
-            "# Photos", "Fluke", "Shallow dive", "# Skin Sample",
+            "# Photos", "Photo Drone", "Fluke", "Shallow dive", "# Skin Sample",
             "Feces", "# Feces","# Boats", "Boat Speed",
             "WW-Whale Distance", "Engine On",
             "# Visibility", "Hydrophone", "Observations"
@@ -1747,11 +1808,11 @@ class LogsScreen(tk.Frame):
                 # Escribir los encabezados
                 # Nuevos encabezados con columnas separadas para fecha, hora, latitud y longitud
                 writer.writerow([
-                    "fecha", "hora", "ID", "M-C", "Init Latitude","Init Longitude", "Init Time", "Final Latitude", "Final Longitude","Final Time",
-                    "Surface Time", "# Sightings", "Behavior", "# Blows", "First Blow", "# Whales",
-                    "Individual (letter)", "Initial Distance", "Angle", "# Photos", "Fluke", "Shallow dive",
+                    "fecha", "# Sightings", "hora", "ID",  "M-C", "Init Latitude","Init Longitude", "Init Time", "Final Latitude", "Final Longitude","Final Time",
+                    "Surface Time", "Behavior", "# Blows", "Blow Sample", "First Blow", "# Whales",
+                    "Individual (letter)", "Initial Distance", "Angle", "# Photos", "Photo Drone", "Fluke", "Shallow dive",
                     "# Skin Sample", "Feces", "# Feces", "# Boats", "Boat Speed", "WW-Whale Distance", "Engine On",
-                    "# Visibility", "Hydrophone", "Observations", "Latitud", "Longitud"
+                    "# Visibility", "Hydrophone", "Observations"
                 ])
 
                 for rec in records:
@@ -1770,6 +1831,7 @@ class LogsScreen(tk.Frame):
                     # Crear una fila con los nuevos valores separados
                     row = [
                         date,  # fecha
+                        rec.get("# Sightings", ""),
                         time,  # hora
                         rec.get("ID", ""),
                         rec.get("M-C", ""),
@@ -1780,15 +1842,16 @@ class LogsScreen(tk.Frame):
                         lon_final, # longitud final
                         rec.get("Final Time", ""),
                         rec.get("Surface Time", ""),
-                        rec.get("# Sightings", ""),
                         rec.get("Behavior", ""),
                         rec.get("# Blows", ""),
+                        rec.get("Blow Sample", ""),
                         rec.get("First Blow", ""),
                         rec.get("# Whales", ""),
                         rec.get("Individual (letter)", ""),
                         rec.get("Initial Distance", ""),
                         rec.get("Angle", ""),
                         rec.get("# Photos", ""),
+                        rec.get("Photo Drone", ""),
                         rec.get("Fluke", ""),
                         rec.get("Shallow dive", ""),
                         rec.get("# Skin Sample", ""),
