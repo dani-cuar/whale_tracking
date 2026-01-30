@@ -6,6 +6,7 @@ import sys, os
 import time
 import os
 import gps
+import observation_db
 
 class StartScreen(tk.Frame):
     def __init__(self, parent, app, handlers, *args, **kwargs):
@@ -43,7 +44,7 @@ class StartScreen(tk.Frame):
         cards_frame.pack(pady=40)
 
         # Para que las tarjetas no se encojan
-        for i in range(3):
+        for i in range(4):
             cards_frame.grid_columnconfigure(i, weight=1)
 
         # Tarjeta 1: Start Tracking
@@ -78,7 +79,7 @@ class StartScreen(tk.Frame):
         )
         logs_card.grid(row=0, column=1, padx=20)
 
-        # Tarjeta 3: Configure GPS (placeholder)
+        # Tarjeta 3: Configure GPS
         gps_card = self._create_card(
             cards_frame,
             title="Configure GPS",
@@ -93,6 +94,22 @@ class StartScreen(tk.Frame):
             icon_text="⚙"
         )
         gps_card.grid(row=0, column=2, padx=20)
+
+        # Tarjeta 4: Whale Observation Points
+        observation_card = self._create_card(
+            cards_frame,
+            title="Whale Observation Points",
+            subtitle="Observation logging",
+            BG_MAIN=BG_MAIN,
+            CARD_BG=CARD_BG,
+            TEXT_DARK=TEXT_DARK,
+            TEXT_MUTED=TEXT_MUTED,
+            ACCENT=ACCENT,
+            HOVER_BG=HOVER_BG,
+            command=self._whale_observation_points,
+            icon_text="🐋"
+        )
+        observation_card.grid(row=0, column=3, padx=20)
 
         # ---------- FOOTER ----------
         footer = tk.Label(
@@ -189,6 +206,10 @@ class StartScreen(tk.Frame):
     def _configure_gps(self):
         """Ir a la pantalla de configuración."""
         self.app.show_screen("config")
+
+    def _whale_observation_points(self):
+        """Ir a la pantalla de observación."""
+        self.app.show_screen("observation")
 
 class TrackingScreen(tk.Frame):
     def __init__(self, parent, app, handlers, *args, **kwargs):
@@ -491,7 +512,7 @@ class TrackingScreen(tk.Frame):
             
             options = {
                 "Behavior": [
-                    "t - traveling", "sf - surface feeding", "J - J movement",
+                    "None","t - traveling", "sf - surface feeding", "J - J movement",
                     "hac - half anticyclonic circle", "hc - half cyclonic circle",
                     "r - resting", "br - breaching", "n - nursing",
                     "f or zz - foraging or zig-zag", "st - straight line"
@@ -1528,6 +1549,16 @@ class LogsScreen(tk.Frame):
         )
         backup_btn.grid(row=0, column=9, padx=10, pady=5)
 
+        deleteDB_btn = tk.Button(
+            actions_frame,
+            text="Delete DB",
+            font=("Arial", 10),
+            bg=COLORS["danger"],
+            fg="white",
+            command=self.deleteDB
+        )
+        deleteDB_btn.grid(row=0, column=10, padx=10, pady=5)
+
         back_btn = tk.Button(
             actions_frame,
             text="← Back",
@@ -1536,7 +1567,7 @@ class LogsScreen(tk.Frame):
             fg="white",
             command=lambda: self.app.show_screen("start")
         )
-        back_btn.grid(row=0, column=10, padx=10, pady=5)
+        back_btn.grid(row=0, column=11, padx=10, pady=5)
 
         # ---------- Tabla para ver registros ----------
         table_frame = tk.Frame(self, bg=BG)
@@ -1780,23 +1811,25 @@ class LogsScreen(tk.Frame):
                 date_suffix = f"_{start_norm}_to_{end_norm}"
         else:
             # sin filtro de fechas: usar timestamp para no sobrescribir
-            ts = datetime.now().strftime("%Y-%m-%d")
+            ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             date_suffix = f"_{ts}"
 
         # -----------------------------
-        # Carpeta por defecto: donde está el programa / exe
+        # Elegir carpeta destino (preguntar UNA vez)
         # -----------------------------
-        try:
-            if getattr(sys, "frozen", False):
-                folder = os.path.dirname(sys.executable)  # cuando es .exe
-            else:
-                folder = os.path.dirname(os.path.abspath(__file__))  # en desarrollo
-        except Exception as e:
-            messagebox.showerror(
-                "Error",
-                f"No se pudo obtener la carpeta del programa:\n{e}"
-            )
+        base_name = f"whale_logs{date_suffix}.csv"  # nombre sugerido, solo para el diálogo
+
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            initialfile=base_name,
+            filetypes=[("CSV files", "*.csv")],
+            title="Selecciona dónde guardar los CSV"
+        )
+        if not path:  # canceló
+            messagebox.showinfo("Exportación cancelada", "No se guardó ningún archivo.")
             return
+
+        folder = os.path.dirname(path)
 
         errors = []
 
@@ -1931,6 +1964,36 @@ class LogsScreen(tk.Frame):
             db_id = rec.get("_db_id")
             if db_id is not None:
                 self.item_to_dbid[item_id] = db_id
+
+    def deleteDB(self):
+        if "delete_db" not in self.handlers:
+            messagebox.showerror("Error", "No hay handler para borrar la base de datos.")
+            return
+
+        # Confirmación fuerte
+        if not messagebox.askyesno(
+            "Delete DB",
+            "Esto borrará TODA la base de datos (todos los registros) y NO se puede deshacer.\n\n¿Continuar?"
+        ):
+            return
+
+        try:
+            ok = self.handlers["delete_db"]()
+            if not ok:
+                messagebox.showerror("Error", "No se pudo borrar la base de datos (archivo en uso).")
+                return
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo borrar la base de datos:\n{e}")
+            return
+
+        # limpiar la tabla en UI
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        self.item_to_dbid.clear()
+        self.current_records = []
+
+        messagebox.showinfo("Delete DB", "Base de datos borrada correctamente.")
+        
 
     def backup_db(self):
         """Pide una carpeta y crea un backup de la base de datos ahí."""
@@ -2101,3 +2164,255 @@ class ConfigScreen(tk.Frame):
 
         messagebox.showinfo("Saved", "GPS configuration saved.")
         self.app.show_screen("start")
+
+
+class ObservationScreen(tk.Frame):
+    def __init__(self, parent, app, handlers, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
+
+        self.app = app
+        self.handlers = handlers
+
+        # ====== Misma estética que ConfigScreen ======
+        self.bg = "#f5f7fb"
+        self.text = "#111827"
+        self.muted = "#6b7280"
+        self.form_bg = "white"
+
+        self.configure(bg=self.bg)
+
+        # ====== Título (igual estilo) ======
+        title = tk.Label(
+            self,
+            text="Whale Observation Points",
+            font=("Arial", 22, "bold"),
+            bg=self.bg,
+            fg=self.text
+        )
+        title.pack(pady=(80, 8))
+
+        # ====== Cronómetro ======
+        self.timer_var = tk.StringVar(value="00:00:00")
+        timer_lbl = tk.Label(
+            self,
+            textvariable=self.timer_var,
+            font=("Arial", 28, "bold"),
+            bg=self.bg,
+            fg=self.text
+        )
+        timer_lbl.pack(pady=(0, 18))
+
+        # ====== Outer frame ======
+        outer_frame = tk.Frame(self, bg=self.bg)
+        outer_frame.pack(fill="both", expand=True)
+
+        # Vars agrupadas (ideal para DB)
+        self.form_vars = {}
+
+        # ---------- FORMULARIO ----------
+        form_container_A = tk.Frame(outer_frame, bg=self.form_bg, bd=1, relief="solid")
+        form_container_A.place(x=120, y=10, width=1000, height=180)
+
+        # Variables del formulario A
+        self.form_vars["A"] = {
+            "date": tk.StringVar(value=""),
+            "time": tk.StringVar(value=""),
+            "lat":  tk.StringVar(value=""),
+            "lon":  tk.StringVar(value=""),
+            "notes_widget": None,
+            "container": form_container_A
+        }
+
+        def add_field(container, x, y, label_text, var, width=24):
+            tk.Label(
+                container,
+                text=label_text,
+                bg=self.form_bg,
+                fg=self.text,
+                font=("Arial", 10, "bold")
+            ).place(x=x, y=y)
+
+            ent = tk.Entry(container, textvariable=var, width=width, font=("Arial", 10), state="readonly")
+            ent.place(x=x, y=y + 22)
+            return ent
+
+        vars_form = self.form_vars["A"]
+
+        # Date / Time
+        add_field(form_container_A, 20, 15, "Date", vars_form["date"])
+        add_field(form_container_A, 270, 15, "Time", vars_form["time"])
+
+        # Lat / Lon
+        add_field(form_container_A, 520, 15, "Latitude", vars_form["lat"])
+        add_field(form_container_A, 770, 15, "Longitude", vars_form["lon"])
+
+        # Notes
+        tk.Label(
+            form_container_A,
+            text="Notes",
+            bg=self.form_bg,
+            fg=self.text,
+            font=("Arial", 10, "bold")
+        ).place(x=20, y=75)
+
+        notes_A = tk.Text(form_container_A, width=135, height=3, font=("Arial", 10))
+        notes_A.place(x=20, y=98)
+        vars_form["notes_widget"] = notes_A
+
+        
+        # ====== Botones Start/Stop/Save ======
+        # Frame de botones
+        btns = tk.Frame(outer_frame, bg=self.bg)
+        btns.place(x=620, y=210, anchor="n")
+
+        self.start_btn = tk.Button(btns, text="Start", width=12, bg="#10B981", fg="white", activebackground="#059669", activeforeground="white", command=lambda: self._start_for_form("A"))
+        self.start_btn.grid(row=0, column=0, padx=10)
+
+        self.stop_btn = tk.Button(btns, text="Stop", width=12, state="disabled", bg="#EF4444", fg="white", activebackground="#DC2626", activeforeground="white", command=self._stop_observation)
+        self.stop_btn.grid(row=0, column=1, padx=10)
+
+        self.save_btn = tk.Button(btns, text="Save", width=12, bg="#3B82F6", fg="white", activebackground="#2563EB", activeforeground="white", command=lambda: self._save_form("A"))
+        self.save_btn.grid(row=0, column=2, padx=10)
+
+        self.clear_btn = tk.Button(btns, text="Clear", width=12, bg="#9CA3AF", fg="white", activebackground="#6B7280", activeforeground="white", command=lambda: self._clear_form("A"))
+        self.clear_btn.grid(row=0, column=3, padx=10)
+
+        self.export_btn = tk.Button(btns, text="Export CSV", width=12, bg="#8B5CF6", fg="white", activebackground="#7C3AED", activeforeground="white", command=self._export_csv)
+        self.export_btn.grid(row=0, column=4, padx=10)
+
+        # Botón Back (volver a la pantalla de inicio)
+        self.back_btn = tk.Button(btns, text="← Back", width=12, bg="#6B7280", fg="white", activebackground="#4B5563", activeforeground="white", command=lambda: self.app.show_screen("start"))
+        self.back_btn.grid(row=0, column=5, padx=10)
+
+        # ====== Estado cronómetro ======
+        self._running = False
+        self._elapsed_seconds = 0
+        self._after_id = None
+
+    # ---------- GPS ----------
+    def _get_gps(self):
+        pos = gps.get_current_position()  # "lat, lon" o "GPS_ERROR"
+        if pos == "GPS_ERROR" or not pos:
+            return "", ""
+        try:
+            lat_str, lon_str = [x.strip() for x in pos.split(",")]
+            return lat_str, lon_str
+        except Exception:
+            return "", ""
+
+    # ---------- Start/Stop ----------
+    def _start_for_form(self, letter):
+        now = datetime.now()
+        fv = self.form_vars[letter]
+
+        fv["date"].set(now.strftime("%Y-%m-%d"))
+        fv["time"].set(now.strftime("%H:%M:%S"))
+
+        lat, lon = self._get_gps()
+        fv["lat"].set(lat)
+        fv["lon"].set(lon)
+
+        # Reinicia cronómetro a 0 y arranca
+        self._elapsed_seconds = 0
+        self._update_timer_label()
+
+        self._running = True
+        self.start_btn.config(state="disabled")
+        self.stop_btn.config(state="normal")
+
+        self._tick()
+
+    def _stop_observation(self):
+        self._running = False
+        self.start_btn.config(state="normal")
+        self.stop_btn.config(state="disabled")
+
+    def _tick(self):
+        if not self._running:
+            return
+        self._elapsed_seconds += 1
+        self._update_timer_label()
+        self._after_id = self.after(1000, self._tick)
+
+    def _update_timer_label(self):
+        h = self._elapsed_seconds // 3600
+        m = (self._elapsed_seconds % 3600) // 60
+        s = self._elapsed_seconds % 60
+        self.timer_var.set(f"{h:02d}:{m:02d}:{s:02d}")
+
+    def _save_form(self, letter):
+        fv = self.form_vars[letter]
+
+        date = fv["date"].get().strip()
+        time_ = fv["time"].get().strip()
+        lat = fv["lat"].get().strip()
+        lon = fv["lon"].get().strip()
+        notes = fv["notes_widget"].get("1.0", "end-1c").strip()
+        duration = int(self._elapsed_seconds)
+
+        # Validación mínima
+        if not date or not time_:
+            messagebox.showwarning("Missing data", "Press Start first to capture date/time/GPS.")
+            return
+
+        # Guardar en DB independiente
+        try:
+            new_id = observation_db.insert_point(
+                date=date,
+                time=time_,
+                latitude=lat,
+                longitude=lon,
+                notes=notes,
+                duration_seconds=duration
+            )
+            messagebox.showinfo("Saved", f"Observation saved (ID: {new_id}).")
+
+            # limpiar al guardar
+            self._clear_form(letter)
+
+        except Exception as e:
+            messagebox.showerror("DB Error", f"Could not save observation:\n{e}")
+
+    def _clear_form(self, letter):
+        fv = self.form_vars[letter]
+
+        fv["date"].set("")
+        fv["time"].set("")
+        fv["lat"].set("")
+        fv["lon"].set("")
+
+        fv["notes_widget"].delete("1.0", "end")
+
+        # Reinicia cronómetro y detén si estaba corriendo
+        self._running = False
+        if self._after_id is not None:
+            self.after_cancel(self._after_id)
+            self._after_id = None
+
+        self._elapsed_seconds = 0
+        self._update_timer_label()
+
+        # Botones a estado inicial
+        self.start_btn.config(state="normal")
+        self.stop_btn.config(state="disabled")
+
+    def _export_csv(self):
+        default_name = f"observation_points_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            initialfile=default_name,
+            filetypes=[("CSV files", "*.csv")],
+            title="Export observation points to CSV"
+        )
+        if not path:
+            return
+
+        try:
+            n = observation_db.count_points()
+            dbp = observation_db.get_db_path_str()
+
+            observation_db.export_to_csv(path)
+            messagebox.showinfo("Exported", f"Exported {n} rows.\nDB: {dbp}\nCSV: {path}")
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Could not export CSV:\n{e}")
+

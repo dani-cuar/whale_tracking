@@ -2,6 +2,8 @@ import json
 import asyncio
 from pathlib import Path
 from typing import Optional, Dict
+import sys
+import os
 
 # Intentamos importar winrt (para el sensor GNSS de Windows)
 try:
@@ -9,8 +11,19 @@ try:
 except ImportError:
     Geolocator = None
 
+def _get_config_path() -> Path:
+    # Si es ejecutable (PyInstaller)
+    if getattr(sys, "frozen", False):
+        app_dir = Path(os.environ["LOCALAPPDATA"]) / "WhaleTrackingSystem"
+        app_dir.mkdir(parents=True, exist_ok=True)
+        return app_dir / "gps_config.json"
+
+    # En desarrollo: junto al archivo (o si prefieres, en /data también)
+    return Path(__file__).resolve().parent / "gps_config.json"
+
 # Archivo donde guardamos la configuración del GPS
-CONFIG_PATH = Path(__file__).resolve().parent / "gps_config.json"
+# CONFIG_PATH = Path(__file__).resolve().parent / "gps_config.json"
+CONFIG_PATH = _get_config_path()
 
 # Configuración por defecto
 DEFAULT_CONFIG = {
@@ -105,10 +118,5 @@ def get_current_position(whale_id: Optional[str] = None) -> str:
 
 
 def test_connection(config: Optional[Dict] = None):
-    """
-    Función pensada para tu ConfigScreen:
-    Prueba que se pueda obtener una posición REAL (GNSS).
-    Ignoramos 'config' porque con el sensor GNSS no usamos puerto COM.
-    """
     lat, lon = asyncio.run(_get_location_async(timeout_sec=10.0))
     return lat, lon

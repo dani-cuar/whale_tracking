@@ -1,7 +1,7 @@
 from tkinter import messagebox
 import tkinter as tk
 from tkinter import ttk
-from gui import StartScreen, TrackingScreen, LogsScreen, ConfigScreen
+from gui import StartScreen, TrackingScreen, LogsScreen, ConfigScreen, ObservationScreen
 import database
 import gps
 
@@ -13,15 +13,15 @@ NUMERIC_INT_FIELDS = {
     "# Blows",
     "# Whales",
     # "# Photos",
-    "# Boats",
+    #"# Boats",
     "Angle",
 }
 
 # Campos que deben ser decimales (float)
 NUMERIC_FLOAT_FIELDS = {
     "Initial Distance",
-    "Boat Speed",
-    "WW-Whale Distance",
+    #"Boat Speed",
+    #"WW-Whale Distance",
 }
 
 # Campo opcional (puede estar vacío)
@@ -224,6 +224,7 @@ class App(tk.Tk):
         self.handlers["delete_records"] = database.delete_records
         self.handlers["backup_db"] = database.backup_database
         self.handlers["configure_gps"] = configure_gps_handler
+        self.handlers["delete_db"] = database.delete_db
         # database.debug_print_all_records()
 
         # si alguna pantalla quiere acceder a la app
@@ -243,6 +244,9 @@ class App(tk.Tk):
                 self.geometry("1200x650")
                 self.title("Whale Tracking System")
             elif name == "config":
+                self.geometry("1200x650")
+                self.title("Whale Tracking System")
+            elif name == "observation":
                 self.geometry("1200x650")
                 self.title("Whale Tracking System")
             self.screens[name].tkraise()
@@ -269,6 +273,12 @@ class App(tk.Tk):
             self.geometry("1200x650")
             self.title("GPS Configuration")
             frame = ConfigScreen(self.container, self, self.handlers)
+
+        elif name == "observation":
+            self.geometry("1200x650")
+            self.title("Whale Observation Points")
+            frame = ObservationScreen(self.container, self, self.handlers)
+
         else:
             raise ValueError(f"Pantalla desconocida: {name}")
 

@@ -4,6 +4,32 @@ import shutil
 from datetime import datetime
 import os
 import sys
+import time
+
+def delete_db() -> bool:
+    """
+    Borra completamente la base de datos (archivo .db)
+    y recrea el esquema (tabla records).
+    """
+    db_path = _get_db_path()
+
+    if db_path.exists():
+        for _ in range(5):
+            try:
+                db_path.unlink()
+                break
+            except PermissionError:
+                time.sleep(0.2)
+            except Exception:
+                raise
+
+        # si después de reintentar sigue existiendo, fallo
+        if db_path.exists():
+            return False
+
+    # IMPORTANTE: recrear tabla para que la app no truene después
+    init_db()
+    return True
 
 def _get_db_path() -> Path:
     # Si es ejecutable (PyInstaller)
